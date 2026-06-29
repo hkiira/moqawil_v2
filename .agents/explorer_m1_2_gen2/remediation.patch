@@ -1,0 +1,185 @@
+diff --git a/src/Controller/OrdersController.php b/src/Controller/OrdersController.php
+--- a/src/Controller/OrdersController.php
++++ b/src/Controller/OrdersController.php
+@@ -54,11 +54,17 @@
+     public function ventes()
+     {
+-        $vrb = $_GET['keyword'];
++        $vrb = $this->request->getQuery('keyword');
++        if (empty($vrb) || !is_array($vrb)) {
++            $vrb = [];
++        }
++        $vrb['start'] = !empty($vrb['start']) ? $vrb['start'] : date('Y-m-01');
++        $vrb['end'] = !empty($vrb['end']) ? $vrb['end'] : date('Y-m-d');
++        $vrb['user'] = !empty($vrb['user']) ? $vrb['user'] : null;
++
+         $datetime1 = new Time($vrb['start']);
+         $datetime2 = new Time($vrb['end']);
+-        if ($vrb['user'] == NULL) {
++        if ($vrb['user'] === null || $vrb['user'] === '') {
+             $orders = $this->Orders->find('all')->contain(['Orderpacks.Turnovers'])->where(['DATE(Orders.created) <= ' => $vrb['end'], 'DATE(Orders.created) >= ' => $vrb['start']]);
+         } else {
+             $orders = $this->Orders->find('all')->contain(['Orderpacks.Turnovers'])->where(['Orders.user_id' => $vrb['user'], 'DATE(Orders.created) <= ' => $vrb['end'], 'DATE(Orders.created) >= ' => $vrb['start']]);
+@@ -74,5 +80,7 @@
+         }
+ 
+-        $pofsale = $this->Orders->Pofsales->find('all')->where(['warehouse_id' => $this->Auth->user('defaultwh')]);
+-        $qwh['OR'][$pofsale->last()->id] = ['Orders.pofsale_id' => $pofsale->last()->id];
++        $pofsales = $this->Orders->Pofsales->find('all')->where(['warehouse_id' => $this->Auth->user('defaultwh')]);
++        foreach ($pofsales as $pos) {
++            $qwh['OR'][$pos->id] = ['Orders.pofsale_id' => $pos->id];
++        }
+ 
+         $orders->where([$qwh]);
+@@ -140,3 +148,3 @@
+                     $itemRevenue = $orderpack->quantity * $orderpack->price;
+                     $total += $itemRevenue;
+-                    $totalcommission += ($orderpack->turnover_id) ? ($itemRevenue * $orderpack->turnover->commission / 100) : $itemRevenue;
++                    $totalcommission += ($orderpack->turnover_id && $orderpack->turnover) ? ($itemRevenue * $orderpack->turnover->commission / 100) : 0;
+                     $orderRevenue += $itemRevenue;
+diff --git a/src/Template/Orders/analytics.ctp b/src/Template/Orders/analytics.ctp
+--- a/src/Template/Orders/analytics.ctp
++++ b/src/Template/Orders/analytics.ctp
+@@ -1,70 +1,33 @@
+ <div class="row">
+     <!-- Stat Card 1: Total Revenue -->
+-    <div class="col-xl-3 col-md-6 mb-6">
+-        <div class="card card-custom stretch-card">
+-            <div class="card-body p-5">
+-                <div class="d-flex align-items-center justify-content-between">
+-                    <div>
+-                        <span class="text-muted font-weight-bold font-size-sm d-block text-uppercase">Total Revenue</span>
+-                        <span class="text-dark font-weight-boldest font-size-h3 d-block mt-2"><?= number_format($total, 2, '.', ' ') ?> MAD</span>
+-                    </div>
+-                    <div class="bg-light-success p-4 rounded-xl">
+-                        <i class="flaticon2-shopping-cart-1 text-success font-size-h2"></i>
+-                    </div>
+-                </div>
+-            </div>
+-        </div>
+-    </div>
++    <?= $this->element('dashboard/stat_card', [
++        'title' => 'Total Revenue',
++        'value' => number_format($total, 2, '.', ' ') . ' MAD',
++        'label' => 'Total Revenue',
++        'icon' => 'flaticon2-shopping-cart-1',
++        'type' => 'success'
++    ]) ?>
+ 
+     <!-- Stat Card 2: Total Commission -->
+-    <div class="col-xl-3 col-md-6 mb-6">
+-        <div class="card card-custom stretch-card">
+-            <div class="card-body p-5">
+-                <div class="d-flex align-items-center justify-content-between">
+-                    <div>
+-                        <span class="text-muted font-weight-bold font-size-sm d-block text-uppercase">Total Commission</span>
+-                        <span class="text-dark font-weight-boldest font-size-h3 d-block mt-2"><?= number_format($totalcommission, 2, '.', ' ') ?> MAD</span>
+-                    </div>
+-                    <div class="bg-light-primary p-4 rounded-xl">
+-                        <i class="flaticon2-line-chart text-primary font-size-h2"></i>
+-                    </div>
+-                </div>
+-            </div>
+-        </div>
+-    </div>
++    <?= $this->element('dashboard/stat_card', [
++        'title' => 'Total Commission',
++        'value' => number_format($totalcommission, 2, '.', ' ') . ' MAD',
++        'label' => 'Total Commission',
++        'icon' => 'flaticon2-line-chart',
++        'type' => 'primary'
++    ]) ?>
+ 
+     <!-- Stat Card 3: Total Orders -->
+-    <div class="col-xl-3 col-md-6 mb-6">
+-        <div class="card card-custom stretch-card">
+-            <div class="card-body p-5">
+-                <div class="d-flex align-items-center justify-content-between">
+-                    <div>
+-                        <span class="text-muted font-weight-bold font-size-sm d-block text-uppercase">Total Orders</span>
+-                        <span class="text-dark font-weight-boldest font-size-h3 d-block mt-2"><?= $totalOrders ?></span>
+-                    </div>
+-                    <div class="bg-light-info p-4 rounded-xl">
+-                        <i class="flaticon-list-3 text-info font-size-h2"></i>
+-                    </div>
+-                </div>
+-            </div>
+-        </div>
+-    </div>
++    <?= $this->element('dashboard/stat_card', [
++        'title' => 'Total Orders',
++        'value' => $totalOrders,
++        'label' => 'Total Orders',
++        'icon' => 'flaticon-list-3',
++        'type' => 'info'
++    ]) ?>
+ 
+     <!-- Stat Card 4: Pending Orders -->
+-    <div class="col-xl-3 col-md-6 mb-6">
+-        <div class="card card-custom stretch-card">
+-            <div class="card-body p-5">
+-                <div class="d-flex align-items-center justify-content-between">
+-                    <div>
+-                        <span class="text-muted font-weight-bold font-size-sm d-block text-uppercase">Pending Orders</span>
+-                        <span class="text-dark font-weight-boldest font-size-h3 d-block mt-2"><?= $pendingOrders ?></span>
+-                    </div>
+-                    <div class="bg-light-danger p-4 rounded-xl">
+-                        <i class="flaticon-time text-danger font-size-h2"></i>
+-                    </div>
+-                </div>
+-            </div>
+-        </div>
+-    </div>
++    <?= $this->element('dashboard/stat_card', [
++        'title' => 'Pending Orders',
++        'value' => $pendingOrders,
++        'label' => 'Pending Orders',
++        'icon' => 'flaticon-time',
++        'type' => 'danger'
++    ]) ?>
+ </div>
+diff --git a/src/Template/Orders/index.ctp b/src/Template/Orders/index.ctp
+--- a/src/Template/Orders/index.ctp
++++ b/src/Template/Orders/index.ctp
+@@ -84,7 +84,7 @@
+ 
+-    $('.applyBtn').click(function () {
+-    var user=$('#kt_datatable_search_user').val();
+-        var datestart=$('#kt_dashboard_daterangepicker').data('daterangepicker').startDate.format('YYYY-MM-DD');
+-        var dateend=$('#kt_dashboard_daterangepicker').data('daterangepicker').endDate.format('YYYY-MM-DD');
+-        dashboard(datestart, dateend,user,"<?php echo $this->Url->build( [ 'controller' => 'Orders', 'action' => 'ventes'] ); ?>",'.ventes');
+-
+-    });
++    $('#kt_dashboard_daterangepicker').on('apply.daterangepicker', function (ev, picker) {
++        var user = $('#kt_datatable_search_user').val();
++        var datestart = picker.startDate.format('YYYY-MM-DD');
++        var dateend = picker.endDate.format('YYYY-MM-DD');
++        dashboard(datestart, dateend, user, "<?php echo $this->Url->build( [ 'controller' => 'Orders', 'action' => 'ventes'] ); ?>", '.ventes');
++    });
+ 
+diff --git a/tests/TestCase/Controller/OrdersControllerTest.php b/tests/TestCase/Controller/OrdersControllerTest.php
+--- a/tests/TestCase/Controller/OrdersControllerTest.php
++++ b/tests/TestCase/Controller/OrdersControllerTest.php
+@@ -55,5 +55,5 @@
+         $conn->execute('SET FOREIGN_KEY_CHECKS = 0');
+-        $conn->execute('TRUNCATE TABLE orderpacks');
+-        $conn->execute('TRUNCATE TABLE orders');
+-        $conn->execute('TRUNCATE TABLE pofsales');
+-        $conn->execute('TRUNCATE TABLE turnovers');
+-        $conn->execute('TRUNCATE TABLE warehouses');
++        $conn->execute('DELETE FROM orderpacks');
++        $conn->execute('DELETE FROM orders');
++        $conn->execute('DELETE FROM pofsales');
++        $conn->execute('DELETE FROM turnovers');
++        $conn->execute('DELETE FROM warehouses');
+@@ -140,3 +140,3 @@
+         $this->assertResponseOk();
+-        $this->assertEquals(160.0, $this->viewVars['totalcommission']);
++        $this->assertEquals(10.0, $this->viewVars['totalcommission']);
+     }
+@@ -169,2 +169,2 @@
+         $this->assertStringContainsString('Total Orders', $body);
+         $this->assertStringContainsString('Pending Orders', $body);
+-        $this->assertStringContainsString('card-custom', $body);
+-        $this->assertStringContainsString('stretch-card', $body);
++        $this->assertStringContainsString('stat-card', $body);

@@ -1,0 +1,172 @@
+"use strict";
+
+var KTDatatableRemoteAjaxDemo = function() {
+
+    var demo = function() {
+
+        var datatable = $('#kt_datatable').KTDatatable({
+            
+            data: {
+                type: 'remote',
+                source: {
+                    read: {
+                        url: HOST_URL,
+                        map: function(raw) {
+                            var dataSet = raw;
+                            if (typeof raw.data !== 'undefined') {
+                                dataSet = raw.data;
+                            }
+                            return dataSet;
+                        },
+                    },
+                },
+                pageSize: 10,
+                serverPaging: true,
+                serverFiltering: true,
+                serverSorting: true,
+            },
+
+            // layout definition
+            layout: {
+                scroll: true,
+                footer: true,
+            },
+
+            // column sorting
+            sortable: true,
+
+            pagination: true,
+
+            search: {
+                input: $('#kt_datatable_search_query'),
+                key: 'generalSearch'
+            },
+
+            // columns definition
+            columns: [{
+                field: 'user',
+                title: 'Par',
+                width: 100,
+                sortable: 'asc',
+            }, {
+                field: 'code',
+                width: 80,
+                title: 'Code',
+            }, {
+                field: 'orders',
+                title: 'Commandes',
+                width: 200,
+            },{
+                field: 'validate',
+                title: 'Validé par',
+                width: 120,
+            }, {
+                field: 'created',
+                title: 'Date',
+                type: 'date',
+                textAlign: 'center',
+                width: 120,
+                format: 'MM/DD/YYYY',
+            }, {
+                field: 'status',
+                title: 'Statut',
+                width: 80,
+                autoHide: false,
+                // callback function support for column rendering
+                template: function(row) {
+                    var status = {
+                        1: {
+                            'title': 'En Attente',
+                            'class': ' label-light-primary'
+                        },
+                        2: {
+                            'title': 'Validé',
+                            'class': ' label-light-warning'
+                        },
+                    };
+                    return '<span class="label font-weight-bold label-lg ' + status[row.status].class + ' label-inline">' + status[row.status].title + '</span>';
+                },
+            }, {
+                field: 'actions',
+                title: 'Actions',
+                sortable: false,
+                width: 80,
+                overflow: 'visible',
+                autoHide: false,
+                template: function(row) {
+                    var actions='<div class="dropdown dropdown-inline">\
+                                    <a href="javascript:;" class="btn btn-sm btn-clean btn-icon" data-toggle="dropdown">\
+                                        <i class="la la-cog"></i>\
+                                    </a>\
+                                    <div class="dropdown-menu dropdown-menu-sm dropdown-menu-right">\
+                                        <ul class="nav nav-hoverable flex-column">\
+                                        <li class="nav-item"><a class="nav-link" href="/reports/print/' +  row.id + '.pdf" target="_blank"><span class="nav-text">Imprimer</span></a></li>';
+                                    if(row.status==1){
+                                        actions+='<li class="nav-item"><a class="nav-link" href="/reports/orders/'+  row.id + '" ><span class="nav-text">Modifier les paiements</span></a></li>';
+                                        if(row.validate==null){
+                                            actions+='<li class="nav-item"><a class="nav-link" href="/reports/edit/'+  row.id + '/validate" ><span class="nav-text">Valider</span></a></li>';
+                                        }
+                                    }
+                                    if(row.orders==0){
+                                        actions+='<li class="nav-item"><a class="nav-link" href="/reports/delete/'+  row.id + '" ><span class="nav-text">Supprimer</span></a></li>';
+                                    }
+                                    
+                                actions+='</ul>\
+                            </div>\
+                        </div>';
+                    return actions;
+                },
+            }],
+            translate: {
+                records: {
+                    processing: 'Chargement...',
+                    noRecords: 'Aucun enregistrement trouvé',
+                },
+                toolbar: {
+                    pagination: {
+                        items: {
+                            default: {
+                                first: 'Premier',
+                                prev: 'Précédent',
+                                next: 'Suivant',
+                                last: 'Dernière',
+                                more: 'Plus de pages',
+                                input: 'N° de page',
+                                select: 'Sélectionnez la taille de la page',
+                            },
+                            info: 'Vue {{start}} - {{end}} de {{total}} enregistrements',
+                        },
+                    },
+                },
+            },
+        });
+
+		$('#kt_datatable_search_status').on('change', function() {
+            datatable.search($(this).val().toLowerCase(), 'status');
+        });
+
+        $('.applyBtn').click(function () {
+            var datestart=$('#kt_dashboard_daterangepicker').data('daterangepicker').startDate.format('YYYY-MM-DD');
+            var dateend=$('#kt_dashboard_daterangepicker').data('daterangepicker').endDate.format('YYYY-MM-DD');
+            var date=datestart+";"+dateend;
+            datatable.search(date,"date");
+        });
+
+        $('#kt_datatable_search_user').on('change', function() {
+            datatable.search($(this).val().toLowerCase(), 'User');
+        });
+
+        $('#kt_datatable_search_status, #kt_datatable_search_user').selectpicker();
+    };
+
+    return {
+        // public functions
+        init: function() {
+            demo();
+        },
+    };
+}();
+
+jQuery(document).ready(function() {
+    KTDatatableRemoteAjaxDemo.init();
+});

@@ -1,0 +1,340 @@
+public function addOrder($order_type=null)
+    {
+        $this->loadModel('Orders');
+        $order = $this->Orders->newEntity();
+        if ($this->request->is('post')) {
+            $datas = $this->request->getData();
+            
+            $order_type = isset($datas['ordertype_id']) ? $datas['ordertype_id'] : 1;
+            if($order_type==2){
+                $user_id = $datas['user_id'];
+                $customer = $this->Orders->Customers->get($datas['customer_id']);
+                if ($customer->referred) {
+                    $user = $this->Orders->Users->find('all')->where(["OR" => [
+                        ['Users.referral LIKE' => '%' . $customer->referred . '%'],
+                        ['lower(Users.referral) LIKE' => '%' . $customer->referred . '%']
+                    ]])->last();
+                    if ($user) {
+                        $user_id = $user->id;
+                    }
+                }
+                $user=$this->Orders->Users->get($user_id);
+                $statut = $user->role_id == 3 ? 6 : 1;
+                //si la commande contient des produits
+                if ($datas['orderpacks']) {
+                    $datas["user_id"] = $user_id;
+                    $datas["company_id"] = 1;
+                    $datas["statut"] = $statut;
+                    $total=0;
+                    
+                    // Load OrderPricingService for tranche-based pricing
+                    $pricingService = new \App\Service\OrderPricingService();
+                    $pofsale = $this->Orders->Pofsales->get($datas['pofsale_id'], ['contain' => ['Warehouses']]);
+                    $warehouse_id = $pofsale->warehouse->id;
+                    $customer = $this->Orders->Customers->get($datas['customer_id']);
+                    $customertype_id = $customer->customertype_id;
+                    
+                    // Calculate total order amount for amount-based tranches
+                    $totalOrderAmount = 0;
+                    foreach ($datas['orderpacks'] as $orderpack) {
+                        $pack = $this->Orders->Orderpacks->Packs->get($orderpack['pack_id'], ['contain' => ['Prices']]);
+                        $totalOrderAmount += $pack->prices[0]->price * $orderpack['quantity'];
+                    }
+                    
+                    foreach ($datas['orderpacks'] as $key => $orderpack) {
+                        $datas['orderpacks'][$key]['company_id'] = 1;
+                        $datas['orderpacks'][$key]['user_id'] = $user_id;
+                        $quantity = $orderpack['quantity'];
+                        $pack = $this->Orders->Orderpacks->Packs->get($orderpack['pack_id'], ['contain' => ['Prices', 'MeasurementUnits', 'Packunites.Unites.Parentunites']]);
+                        
+                        // Use OrderPricingService to calculate price with tranches
+                        try {
+                            $priceResult = $pricingService->priceLine(
+                                $orderpack['pack_id'],
+                                $quantity,
+                                $customertype_id,
+                                $warehouse_id,
+                                1, // company_id
+                                $totalOrderAmount
+                            );
+                            $price = $priceResult['final_unit_price'];
+                        } catch (\Exception $e) {
+                            // Fallback to legacy pricing if service fails
+                            if($pack->measurement_unit->conversion_factor==1){
+                                $price=$pack->prices[0]->price*$pack->measurement_quantity;
+                            }else{
+                                $getParent=$this->Orders->Orderpacks->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                                if($getParent){
+                                    $price=$pack->prices[0]->price*$getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor);
+                                }else{
+                                    $price=$pack->prices[0]->price;
+                                }
+                            }
+                        }
+                        
+                        if($pack->measurement_unit->conversion_factor==1){
+                            $datas['orderpacks'][$key]['loyaltypoints'] = round($pack->loyaltypoints*$pack->measurement_quantity, 2);
+                        }else{
+                            $getParent=$this->Orders->Orderpacks->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                            if($getParent){
+                                $datas['orderpacks'][$key]['loyaltypoints'] = round($pack->loyaltypoints*$getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor), 2);
+                            }else{
+                                $datas['orderpacks'][$key]['loyaltypoints'] = round($pack->loyaltypoints, 2);
+                            }
+                        }
+                        
+                        $datas['orderpacks'][$key]['initialprice'] = $price;
+                        // $datas['orderpacks'][$key]['price'] = $price;
+                        $datas['orderpacks'][$key]['commissionpack'] = $pack->commission;
+                        $datas['orderpacks'][$key]['turnover_id'] = $pack->turnover_id;
+                        $datas['orderpacks'][$key]['statut'] = $statut;
+                        $total+=$price*$quantity;
+                    }
+
+                    $loyaltypoints = $this->Orders->Orderpacks->find('all')->contain(["Orders"])->where(['Orders.customer_id'=>$datas['customer_id'],'Orderpacks.loyalityvalidation' => 1]);
+                    $datas['loyaltypoints'] = 0;
+                    foreach ($loyaltypoints as $key => $loyaltypoint) {
+                        $datas['loyaltypoints'] += ($loyaltypoint->loyaltypoints*$loyaltypoint->quantity);
+                    }
+                    $datas['loyaltypoints'] = round($datas['loyaltypoints'], 2);
+                    $code = $this->Orders->Companies->Companycodes->find('all')->where(['controleur' => 'Orders', 'company_id' => 1])->last();
+                    $datas['code'] = "APP" . $code->prefixe . ($code->compteur + 1);
+                    $order = $this->Orders->patchEntity($order, $datas, ['associated' => ['Orderpacks','OrderPayments']]);
+                    $pofsale=$this->Orders->Pofsales->get($datas['pofsale_id'],['contain'=>['Warehouses.Subwarehouses'=>function($q){return $q->where(['Subwarehouses.whnature_id'=>1]);}]]); 
+                    $warehouse_id = $pofsale->warehouse->subwarehouses[0]->id;
+                    
+                    
+                    if ($this->Orders->save($order)) {
+                        if($order->statut==6){
+                            // Process stock movement for non-return orders
+                            $this->processStockMovement($order_type, $order->id, $warehouse_id, $datas['orderpacks']);
+                        }
+                        $this->loadModel('Visites');
+                        $visite = $this->Visites->newEntity([
+                            'latittude' => $datas['latitude'],
+                            'longitude' => $datas['longitude'],
+                            'customer_id' => $datas['customer_id'],
+                            'order_id' => $order->id,
+                        ]);
+                
+                        $this->Visites->save($visite);
+                        $data['statut'] = 1;
+                        $data['message'] = 'L\'avoir a été enregistré.';
+                    } else {
+                        $data['statut'] = 0;
+                        $data['message'] = 'L\'avoir n\'a pas enregistré, merci de réessayer.';
+                    }
+                    // la commande ne contient aucun article un message pour resaisir la commande
+                } else {
+                    $this->loadModel('Visites');
+                    $visite = $this->Visites->newEntity([
+                        'latittude' => $datas['latitude'],
+                        'longitude' => $datas['longitude'],
+                        'customer_id' => $datas['customer_id'],
+                    ]);
+                
+                    $this->Visites->save($visite);
+                    $data['statut'] = 1;
+                    $data['message'] = 'La visite a été bien enregistrée';
+                } 
+            }else{
+                $user_id = $datas['user_id'];
+                $customer = $this->Orders->Customers->get($datas['customer_id']);
+                if ($customer->referred) {
+                    $user = $this->Orders->Users->find('all')->where(["OR" => [
+                        ['Users.referral LIKE' => '%' . $customer->referred . '%'],
+                        ['lower(Users.referral) LIKE' => '%' . $customer->referred . '%']
+                    ]])->last();
+                    if ($user) {
+                        $user_id = $user->id;
+                    }
+                }
+                $user=$this->Orders->Users->get($user_id);
+                $statut = $user->role_id == 3 ? 6 : 1;
+                    //si la commande contient des produits
+                if ($datas['orderpacks']) {
+                    $datas["user_id"] = $user_id;
+                    $datas["company_id"] = 1;
+                    $datas["statut"] = $statut;
+                    $total=0;
+                    
+                    // Load OrderPricingService for tranche-based pricing
+                    $pricingService = new \App\Service\OrderPricingService();
+                    $pofsale = $this->Orders->Pofsales->get($datas['pofsale_id'], ['contain' => ['Warehouses']]);
+                    $warehouse_id = $pofsale->warehouse->id;
+                    $customer = $this->Orders->Customers->get($datas['customer_id']);
+                    $customertype_id = $customer->customertype_id;
+                    
+                    // Calculate total order amount for amount-based tranches
+                    $totalOrderAmount = 0;
+                    foreach ($datas['orderpacks'] as $orderpack) {
+                        $pack = $this->Orders->Orderpacks->Packs->get($orderpack['pack_id'], ['contain' => ['Prices']]);
+                        $totalOrderAmount += $pack->prices[0]->price * $orderpack['quantity'];
+                    }
+                    
+                    foreach ($datas['orderpacks'] as $key => $orderpack) {
+                        $datas['orderpacks'][$key]['company_id'] = 1;
+                        $datas['orderpacks'][$key]['user_id'] = $user_id;
+                        $quantity = $orderpack['quantity'];
+                        $pack = $this->Orders->Orderpacks->Packs->get($orderpack['pack_id'], ['contain' => ['Prices', 'MeasurementUnits', 'Packunites.Unites.Parentunites']]);
+                        $quantityperKg=1;
+                        if($pack->saletype_id==4){
+                            if($pack->measurement_unit->conversion_factor!==1){
+                                $getParent=$this->Orders->Orderpacks->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                                if($getParent){
+                                    $quantityperKg=$getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor);
+                                    $quantity=$orderpack['quantity']*$quantityperKg;
+                                }
+                            }
+                        }
+                        // Use OrderPricingService to calculate price with tranches
+                        try {
+                            $priceResult = $pricingService->priceLine(
+                                $orderpack['pack_id'],
+                                $quantity,
+                                $customertype_id,
+                                $warehouse_id,
+                                1, // company_id
+                                $totalOrderAmount
+                            );
+                            $price = $priceResult['final_unit_price']*$quantityperKg;
+                        } catch (\Exception $e) {
+                            $price = $pack->prices[0]->price;
+                        }
+                        if($pack->measurement_unit->conversion_factor==1){
+                            $datas['orderpacks'][$key]['loyaltypoints'] = round($pack->loyaltypoints*$pack->measurement_quantity, 2);
+                        }else{
+                            $getParent=$this->Orders->Orderpacks->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                            if($getParent){
+                                $datas['orderpacks'][$key]['loyaltypoints'] =  round($pack->loyaltypoints*$getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor), 2);
+                            }else{
+                                $datas['orderpacks'][$key]['loyaltypoints'] =  round($pack->loyaltypoints, 2);
+                            }
+                        }
+                        
+                        $datas['orderpacks'][$key]['initialprice'] = $price;
+                        // $datas['orderpacks'][$key]['price'] = $price;
+                        $datas['orderpacks'][$key]['commissionpack'] = $pack->commission;
+                        $datas['orderpacks'][$key]['turnover_id'] = $pack->turnover_id;
+                        $datas['orderpacks'][$key]['statut'] = $statut;
+                        $total+=$price*$quantity;
+                    }
+
+                    $orderPayments=$datas['order_payments'];
+                    foreach ($orderPayments as $keyPay => $orderPayment) {
+                        if($orderPayment['amount']==0){
+                            unset($datas['order_payments'][$keyPay]);
+                        }
+                    }
+                    $paymentImages=$datas['payment_images'];
+                    
+                    $loyaltypoints = $this->Orders->Orderpacks->find('all')->contain(["Orders"])->where(['Orders.customer_id'=>$datas['customer_id'],'Orderpacks.loyalityvalidation' => 1]);
+                    $datas['loyaltypoints'] = 0;
+                    foreach ($loyaltypoints as $key => $loyaltypoint) {
+                        $datas['loyaltypoints'] += ($loyaltypoint->loyaltypoints*$loyaltypoint->quantity);
+                    }
+                    $datas['loyaltypoints'] = round($datas['loyaltypoints'], 2);
+                    $code = $this->Orders->Companies->Companycodes->find('all')->where(['controleur' => 'Orders', 'company_id' => 1])->last();
+                    $datas['code'] = "APP" . $code->prefixe . ($code->compteur + 1);
+                    $order = $this->Orders->patchEntity($order, $datas, ['associated' => ['Orderpacks','OrderPayments']]);
+                    // si le type du point de vente est vente indirect
+                    $this->loadModel('Shippings');
+                    $shipping = $this->Shippings->newEntity();
+                    $shipping->company_id = $order->company_id;
+                    $shipping->user_id = $order->user_id;
+                    $shipping->customer_id = $order->customer_id;
+                    $shipping->statut = 2;
+                    $codeship = $this->Shippings->Companies->Companycodes->find('all')->where(['controleur' => 'Shippings', 'company_id' => 1])->last();
+                    $shipping->code = "APP" . $codeship->prefixe . ($codeship->compteur + 1);
+                    $shipping->orders = [0 => $order];
+                    $pofsale=$this->Shippings->Orders->Pofsales->get($datas['pofsale_id'],['contain'=>['Warehouses.Subwarehouses'=>function($q){return $q->where(['Subwarehouses.whnature_id'=>1]);}]]); 
+                    $warehouse_id = $pofsale->warehouse->subwarehouses[0]->id;
+                    if ($this->Shippings->save($shipping)) {
+                        $this->loadModel('Orders');
+                        $newPayment=$this->Orders->OrderPayments->Payments->newEntity();
+                        $codePay = $this->Orders->Companies->Companycodes->find('all')->where(['controleur' => 'Payments', 'company_id' => 1])->last();
+                        $newPayment->code = "APP" . $codePay->prefixe . ($codePay->compteur + 1);
+                        $newPayment->user_id = $shipping->orders[0]->user_id;
+                        $newPayment->amount = 0;
+                        $this->Orders->OrderPayments->Payments->save($newPayment);
+                        $codePay->compteur = $codePay->compteur + 1;
+                        $this->Shippings->Companies->Companycodes->save($codePay);
+                        $totalPayment=0;
+                        foreach($shipping->orders[0]->order_payments as $key => $orderPayment) {
+                            if($orderPayment->payment_method_id!==5){
+                                $orderPayment->payment_id = $newPayment->id;
+                                $this->Orders->OrderPayments->save($orderPayment);
+                                $totalPayment += $orderPayment->amount;
+                            }
+                        }
+                        $newPayment->amount = $totalPayment;
+                        $this->Orders->OrderPayments->Payments->save($newPayment);
+                        foreach($paymentImages as $paymentImage) {
+                            if(isset($paymentImage['image']) && $paymentImage['image'] != null) {
+                                $this->loadModel('Photos');
+                                $photo = $this->Photos->newEntity();
+                                $paymentId = $newPayment->id;
+                                $paymentPhoto = ($paymentImage['image'] ) ? base64_decode($paymentImage['image'] ) : null;
+                                $filename = ($paymentImage['image_path']) ? $paymentImage['image_path'] : "$paymentId.jpg";
+                                if ($paymentPhoto) {
+                                    $temp = explode(".", $filename);
+                                    $extension = end($temp);
+                                    $name = round(microtime(true) * 1000) . '.' . $extension;
+                                    file_put_contents('../webroot/files/Photos/payments/' . $name, $paymentPhoto);
+
+                                    $photoData = ["title" => $name, "controleur" => "payments", "statut" => 1, "company_id" => 1, 'photo' => $name, 'dir' => 'webroot/files/Photos/payments'];
+                                }
+                                $photoData["objectid"] = $paymentId;
+                                $photo = $this->Photos->patchEntity($photo, $photoData);
+                                $this->Photos->save($photo);
+                            }
+                        }
+                        $this->loadModel('Visites');
+                        $visite = $this->Visites->newEntity([
+                            'latittude' => $datas['latitude'],
+                            'longitude' => $datas['longitude'],
+                            'customer_id' => $datas['customer_id'],
+                            'order_id' => $shipping->orders[0]->id,
+                        ]);
+                
+                        $this->Visites->save($visite);
+                        $code->compteur = $code->compteur + 1;
+                        $this->Shippings->Companies->Companycodes->save($code);
+                        $codeship->compteur = $codeship->compteur + 1;
+                        $this->Shippings->Companies->Companycodes->save($codeship);
+                        if($shipping->orders[0]->statut==6){
+                            // Process stock movement for non-return orders
+                            $this->processStockMovement($order_type, $shipping->orders[0]->id, $warehouse_id, $datas['orderpacks']);
+                        }
+                        
+                        $data['statut'] = 1;
+                        $data['message'] = 'La commande a été enregistré.';
+                    } else {
+                        $data['statut'] = 0;
+                        $data['message'] = 'La commande n\'a pas enregistré, merci de réessayer.';
+                    }
+                    // la commande ne contient aucun article un message pour resaisir la commande
+                } else {
+                    $this->loadModel('Visites');
+                    $visite = $this->Visites->newEntity([
+                        'latittude' => $datas['latitude'],
+                        'longitude' => $datas['longitude'],
+                        'customer_id' => $datas['customer_id'],
+                    ]);
+                
+                    $this->Visites->save($visite);
+                    $data['statut'] = 1;
+                    $data['message'] = 'La visite a été bien enregistrée';
+                }
+                
+            }
+        }
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Credentials: true");
+        header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, Access-Control-Allow-Origin");
+        header("Content-Type: application/json; charset=UTF-8");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        $this->set(compact('data'));
+        $this->set('_serialize', 'data');
+        $this->RequestHandler->renderAs($this, 'json');
+    }

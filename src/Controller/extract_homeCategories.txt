@@ -1,0 +1,42 @@
+public function homeCategories($orderId = 0, $user_id)
+    {
+        $this->loadModel('Users');
+        $user = $this->Users->get($user_id);
+        $categoryData = [];
+        if ($orderId != 0 && $user->role_id == 6) {
+            $order = $this->Users->Orders->get($orderId, ['contain' => ['Orderpacks.Packs']]);
+            foreach ($order->orderpacks as $orderPack) {
+                $categoryData['OR'][$orderPack->pack->category_id] = [['Categories.id' => $orderPack->pack->category_id]];
+            }
+        }
+
+        $this->loadModel('Categories');
+        $categories = $this->Categories->find('all')->where(['Categories.category_id IS NOT ' => NULL]);
+        $categories->where(['Categories.id !=' => 9]); // excluding Cadeaux
+        if ($categoryData) {
+            $categories->where([$categoryData]);
+        }
+
+        foreach ($categories as $key => $category) {
+            $photo = $this->Categories->Photos->find('all')->where(['controleur' => 'categories', 'objectid' => $category->id])->order(['created' => 'ASC'])->last();
+            $img = Router::Url('/') . 'webroot/img/unvailable.jpg';
+            if ($photo) {
+                $img = Router::Url('/') . $photo->dir . '/' . 'thumbnail160-' . $photo->photo;
+            }
+
+            $data[] = [
+                "id" => $category->id,
+                "code" => $category->code,
+                "title" => $category->title,
+                "image" => $img
+            ];
+        }
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Credentials: true");
+        header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, Access-Control-Allow-Origin");
+        header("Content-Type: application/json; charset=UTF-8");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        $this->set(compact('data'));
+        $this->set('_serialize', 'data');
+        $this->RequestHandler->renderAs($this, 'json');
+    }

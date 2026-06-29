@@ -1,0 +1,32 @@
+<?php
+/**
+ * @var \App\View\AppView $this
+ * @var \App\Model\Entity\Sliptype $sliptype
+ */
+?>
+<nav class="large-3 medium-4 columns" id="actions-sidebar">
+    <ul class="side-nav">
+        <li class="heading"><?= __('Actions') ?></li>
+        <li><?= $this->Form->postLink(
+                __('Delete'),
+                ['action' => 'delete', $sliptype->id],
+                ['confirm' => __('Are you sure you want to delete # {0}?', $sliptype->id)]
+            )
+        ?></li>
+        <li><?= $this->Html->link(__('List Sliptypes'), ['action' => 'index']) ?></li>
+        <li><?= $this->Html->link(__('List Slips'), ['controller' => 'Slips', 'action' => 'index']) ?></li>
+        <li><?= $this->Html->link(__('New Slip'), ['controller' => 'Slips', 'action' => 'add']) ?></li>
+    </ul>
+</nav>
+<div class="sliptypes form large-9 medium-8 columns content">
+    <?= $this->Form->create($sliptype) ?>
+    <fieldset>
+        <legend><?= __('Edit Sliptype') ?></legend>
+        <?php
+            echo $this->Form->control('title');
+            echo $this->Form->control('statut');
+        ?>
+    </fieldset>
+    <?= $this->Form->button(__('Submit')) ?>
+    <?= $this->Form->end() ?>
+</div>

@@ -1,0 +1,164 @@
+public function customerOrders($customerId)
+    {
+
+        $this->loadModel('Orders');
+        $orders = $this->Orders->find('all')->contain(['Users','OrderPayments.PaymentMethods','Shippings','Orderpacks.Packs.MeasurementUnits','Orderpacks.Turnovers','Orderpacks.Packs.Turnovers', 'Orderpacks.Packs.Packunites.Unites.Parentunites', 'Customers.Zones.Cities', 'Customers.Customertypes', 'Orderpacks.Packs.Brands', 'Orderpacks.Packs.Prices', 'Orderpacks.Packs.Categories']);
+        $orders->where(['Orders.customer_id' => $customerId]);
+        $data = [];
+        foreach ($orders as $key => $order) {
+            $data[$key] = [
+                "id" => $order->id,
+                "code" => $order->code,
+                "ordertype_id" => $order->ordertype_id,
+                "user_id" => $order->user_id,
+                "date" => $order->created->i18nFormat('dd/MM/yyyy (HH:mm)', 'Africa/Casablanca'),
+                "statut" => $order->statut,
+            ];
+            $photo = $this->Orders->Customers->Photos->find('all')->where(['controleur' => 'customers', 'objectid' => $order->customer->id])->order(['created' => 'ASC'])->last();
+            $img = Router::Url('/') . 'webroot/img/unvailable.jpg';
+            if ($photo) {
+                $img = Router::Url('/') . $photo->dir . '/' . $photo->photo;
+            }
+                $orderPayments=[];
+                foreach ($order->order_payments as $keyOrderP => $orderPayment) {
+                    $image="";
+                    $photo = $this->Orders->Photos->find('all')->where(['controleur' => 'orderpayments', 'objectid' => $orderPayment->id])->order(['created' => 'ASC'])->last();
+                    if ($photo) {
+                        $image = Router::Url('/') . $photo->dir . '/' . $photo->title;
+                    }else{
+                        $image = "";
+                    }
+                    $orderPayments[]=[
+                        "id"=>$orderPayment->id,
+                        "amount"=>$orderPayment->amount,
+                    "date"=>$orderPayment->cheque_date?$orderPayment->cheque_date->i18nFormat('dd/MM/yyyy', 'Africa/Casablanca'):$orderPayment->created->i18nFormat('dd/MM/yyyy ', 'Africa/Casablanca'),
+                        "photo"=>$image,
+                        "created_at"=>$orderPayment->created->i18nFormat('dd/MM/yyyy (HH:mm)', 'Africa/Casablanca'),
+                        "payment_method"=>[
+                            "id"=>$orderPayment->payment_method->id,
+                            "name"=>$orderPayment->payment_method->name,
+                            "code"=>$orderPayment->payment_method->code,
+                            "requires_cheque_date"=>$orderPayment->payment_method->requires_cheque_date,
+                        ]
+                        ];
+                }
+                $data[$key]["order_payments"] = $orderPayments;
+            $customer = [
+                "id" => $order->customer->id,
+                "name" => $order->customer->name . "",
+                "customertype" => ["id" => $order->customer->customertype->id, "title" => $order->customer->customertype->title . ""],
+                "zone" => ["id" => $order->customer->zone->id, "title" => $order->customer->zone->title . ""],
+                "adresse" => $order->customer->adresse . "",
+                "photo" => $img,
+                "phone" => $order->customer->phone . "",
+                "latitude" => $order->customer->latitude . "",
+                "longitude" => $order->customer->longitude . "",
+                "ice" => $order->customer->ice . "",
+                "city" => $order->customer->zone->city->title . "",
+                "statut" => $order->customer->statut,
+            ];
+            $data[$key]["customer"] = $customer;
+            foreach ($order->orderpacks as $key1 => $orderpack) {
+                if($orderpack->pack->measurement_unit->conversion_factor==1){
+                    $loyaltypoints=$orderpack->pack->measurement_quantity.$orderpack->pack->measurement_unit->abbreviation;
+                }else{
+                    $getParent=$this->Orders->Orderpacks->Packs->MeasurementUnits->find('all')->where(['type'=>$orderpack->pack->measurement_unit->type,'conversion_factor'=>($orderpack->pack->measurement_unit->conversion_factor*1000)]);
+                    $loyaltypoints= (($getParent->first()->conversion_factor/($orderpack->pack->measurement_quantity*$orderpack->pack->measurement_unit->conversion_factor))*$orderpack->loyaltypoints)."/".$getParent->first()->conversion_factor.$getParent->first()->abbreviation;
+                }
+                $data[$key]["orderpacks"][$key1] = [
+                    "id" => $orderpack->id,
+                    "date" => $orderpack->created->i18nFormat('dd/MM/yyyy (HH:mm)', 'Africa/Casablanca'),
+                    "price" => $orderpack->price,
+                    "quantity" => $orderpack->quantity,
+                    "turnover" => $loyaltypoints,
+                    "loyalty" => $orderpack->loyaltypoints,
+                    "statut" => $orderpack->statut,
+                    "commissionpack" => ($orderpack->commissionpack) ? $orderpack->commissionpack : 0,
+                ];
+                $this->loadModel('Customers');
+                $photo = $this->Customers->Orders->Orderpacks->Packs->Photos->find('all')->where(['controleur' => 'packs', 'objectid' => $orderpack->pack->id])->order(['created' => 'ASC'])->last();
+                $img = Router::Url('/') . 'webroot/img/unvailable.jpg';
+                $images = [];
+                if ($photo) {
+                    $img = Router::Url('/') . $photo->dir . '/' . 'thumbnail160-' . $photo->photo;
+                    $images[] = Router::Url('/') . $photo->dir . '/' . $photo->photo;
+                } else {
+                    $images[] = $img;
+                }
+                $variants = [];
+                //Sac & Unité
+                if ($orderpack->pack->packunites[0]->statut == 1) {
+                    $variants[0] = [
+                        'id' => $orderpack->pack->packunites[0]->unite->id,
+                        'title' => $orderpack->pack->packunites[0]->unite->title,
+                        'quantity' => $orderpack->pack->packunites[0]->quantity,
+                        'statut' => 1,
+                    ];
+                    $variants[1] = [
+                        'id' => $orderpack->pack->packunites[0]->unite->parentunite->id,
+                        'title' => $orderpack->pack->packunites[0]->unite->parentunite->title,
+                        'quantity' => 1,
+                        'statut' => 1,
+                    ];
+                    // Sac
+                } elseif ($orderpack->pack->packunites[0]->statut == 2) {
+
+                    $variants[0] = [
+                        'id' => $orderpack->pack->packunites[0]->unite->id,
+                        'title' => $orderpack->pack->packunites[0]->unite->title,
+                        'quantity' => $orderpack->pack->packunites[0]->quantity,
+                        'statut' => 1,
+                    ];
+                    $variants[1] = [
+                        'id' => $orderpack->pack->packunites[0]->unite->parentunite->id,
+                        'title' => $orderpack->pack->packunites[0]->unite->parentunite->title,
+                        'quantity' => 1,
+                        'statut' => 0,
+                    ];
+                    // Unité 
+                } else {
+                    $variants[0] = [
+                        'id' => $orderpack->pack->packunites[0]->unite->id,
+                        'title' => $orderpack->pack->packunites[0]->unite->title,
+                        'quantity' => $orderpack->pack->packunites[0]->quantity,
+                        'statut' => 0,
+                    ];
+                    $variants[1] = [
+                        'id' => $orderpack->pack->packunites[0]->unite->parentunite->id,
+                        'title' => $orderpack->pack->packunites[0]->unite->parentunite->title,
+                        'quantity' => 1,
+                        'statut' => 1,
+                    ];
+                }
+                
+                $product = [
+                    "id" => $orderpack->pack->id,
+                    "code" => $orderpack->pack->code,
+                    "title" => $orderpack->pack->title,
+                    "price" => $orderpack->pack->prices[0]->price,
+                    "pricemin" => $orderpack->pack->prices[0]->minp,
+                    "pricemax" => $orderpack->pack->prices[0]->maxp,
+                    "type" => $orderpack->pack->packunites[0]->statut,
+                    "quantity" => 0,
+                    "image" => $img,
+                    "images" => $images,
+                    "statut" => $orderpack->pack->statut,
+                    "turnover" => $loyaltypoints,
+                    "loyalty" => $orderpack->loyaltypoints,
+                    "variants" => $variants,
+                    "brand" => ["id" => $orderpack->pack->brand->id, "title" => $orderpack->pack->brand->title],
+                    "category" => ["id" => $orderpack->pack->category->id, "title" => $orderpack->pack->category->title],
+                ];
+                $data[$key]["orderpacks"][$key1]['product'] = $product;
+            }
+        }
+
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Credentials: true");
+        header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, Access-Control-Allow-Origin");
+        header("Content-Type: application/json; charset=UTF-8");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        $this->set(compact('data'));
+        $this->set('_serialize', 'data');
+        $this->RequestHandler->renderAs($this, 'json');
+    }

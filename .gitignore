@@ -1,0 +1,27 @@
+# CakePHP .gitignore
+/vendor/
+/tmp/*
+!/tmp/empty
+/logs/*
+!/logs/empty
+
+# PHPUnit
+/phpunit.xml
+
+# IDEs and editors
+/.idea/
+/.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / local configs
+.env
+config/app_local.php
+composer.phar

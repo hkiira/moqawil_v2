@@ -1,0 +1,617 @@
+public function products($isDelivery = 0, $warehouse_id, $customertype,$customerId = 0)
+    {
+        //hna ra khassni ncharger les produits li deja kaynine f les commandes a voir men be3d
+        $limit = isset($_GET['limit']) ? $_GET['limit'] : 10;
+        $page = isset($_GET['page']) ? $_GET['page'] : 1;
+        $skip = isset($_GET['skip']) ? $_GET['skip'] : 1;
+        $searchText = isset($_GET['search']) ? $_GET['search'] : "";
+        $categories = isset($_GET['categories']) ?  explode(',', $_GET['categories']) : null;
+        $order_id = isset($_GET['order_id']) ?  $_GET['order_id'] : null;
+        $user_id = isset($_GET['user_id']) ?  $_GET['user_id'] : null;
+        $ordertype_id = isset($_GET['ordertype_id']) ?  $_GET['ordertype_id'] : 1;
+        $isDepot = isset($_GET['is_depot']) ?  $_GET['is_depot'] : 0;
+        $this->loadModel('Warehouses');
+        $user = $this->Warehouses->Companies->Users->find("all")->where(['id'=>$user_id])->first();
+
+        if($user && ($user->role_id==5 || $user->role_id==6)){
+            $customerType = 3;
+        }else{
+            $customerType = 2;
+        }
+        $data = [];
+        
+        // Load all tranches with their remisetype, gift pack, and trancheprices
+        $this->loadModel('Tranches');
+        $allTranches = $this->Tranches->find('all')
+            ->contain(['Remisetypes', 'Packs', 'Trancheprices' => ['Prices']])
+            ->toArray();
+        
+        // Helper function to format tranches - filters by product ID
+        // If tranche has no trancheprices, it applies to ALL products
+        // If tranche has trancheprices, it only applies if a price matches this product
+        $formatTranches = function($tranchesArray, $productId, $customerType,$priceApplies) {
+            $tranches = [];
+            foreach ($tranchesArray as $tranche) {
+                // Check if tranche applies to this product
+                $appliesToProduct = false;
+                
+                // If tranche has no trancheprices, it applies to all products
+                if (empty($tranche->trancheprices)) {
+                    $appliesToProduct = true;
+                } else {
+                    // Check if any trancheprice links to a price for this product
+                    foreach ($tranche->trancheprices as $tp) {
+                        if (!empty($tp->price) && $tp->price->pack_id == $productId && $tp->price->customertype_id == $customerType) {
+                            $appliesToProduct = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // If this tranche applies to the product, include it
+                if ($appliesToProduct) {
+                    $trancheData = [
+                        'id' => $tranche->id,
+                        'title' => $tranche->title,
+                        'apply_type' => $tranche->apply_type,
+                        'quantity_unit_type' => $tranche->quantity_unit_type,
+                        'min' => $tranche->min,
+                        'max' => $tranche->max,
+                        //hadi zedtha 7ta ndir mise a jour l'application mobile
+                        'remise' => $tranche->remisetype_id==2?($tranche->remise/$priceApplies*100):$tranche->remise,
+                        //'remise' => $tranche->remise,
+                        'remisetype_id' => $tranche->remisetype_id,
+                        'remisetype' => [
+                            'id' => $tranche->remisetype->id,
+                            'title' => $tranche->remisetype->title
+                        ]
+                    ];
+                    
+                    // Add gift if pack_id is not null
+                    if ($tranche->pack_id !== null && !empty($tranche->pack)) {
+                        $trancheData['gift'] = [
+                            'id' => $tranche->pack->id,
+                            'title' => $tranche->pack->title
+                        ];
+                    }
+                    
+                    $tranches[] = $trancheData;
+                }
+            }
+            return $tranches;
+        };
+        
+        $pofsale = $this->Warehouses->Pofsales->find('all')->where(['warehouse_id' => $warehouse_id])->last();
+        if ($warehouse_id) {
+            $warehouse = $this->Warehouses->get($warehouse_id, ['contain' => ['Subwarehouses' => function ($q) {
+                return $q->where(['whnature_id' => 1, 'whtype_id' => 2]);
+            }]]);
+            if ($warehouse) {
+                if($customerId!=0){
+                    if($ordertype_id==4){
+                        $this->loadModel('Customers');
+                        $empQuery = $this->Customers->find();
+                        $empQuery->contain(['Zones.Cities', 'Zones.Parentzones', 'Customertypes'])
+                            ->leftJoinWith('Orders.Orderpacks')
+                            ->where(['Customers.id' => $customerId])
+                            ->select([
+                                'Customers.id',
+                                'Customers.code',
+                                'Customers.name',
+                                'Customers.phone',
+                                'Customers.adresse',
+                                'Customers.zone_id',
+                                'Customers.customertype_id',
+                                'Customertypes.id',
+                                'Customertypes.title',
+                                'Customers.statut',
+                                'Zones.title',
+                                'Parentzones.title',
+                                'loyaltypoints_sum' => $empQuery->newExpr(
+                                    'SUM(CASE WHEN Orders.ordertype_id = 1 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END) - '
+                                    . 'SUM(CASE WHEN Orders.ordertype_id = 2 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END)'
+                                )
+                            ])->group(['Customers.id'])->first();
+                            $this->loadModel('Categoryuserpacks');
+                            $user=$this->Categoryuserpacks->Categoryusers->Users->get($user_id);
+                            $packsCondition=[];
+                            $categoryuserpacks = $this->Categoryuserpacks->find('all')->where(['Categoryuserpacks.categoryuser_id' => $user->categoryuser_id]);
+                            foreach ($categoryuserpacks as $categoryuserpack) {
+                                    $packsCondition[] = $categoryuserpack->pack_id;
+                            }
+                            $this->loadModel('Packs');
+                            $packs = $this->Packs->find('all')->contain(['Brands','MeasurementUnits','Turnovers', 'Categories', 'Tranches' => ['Packs', 'Remisetypes'], 'Packunites.Unites.Parentunites', 'Whproducts' => function ($q) use ($warehouse) {
+                                return $q->where(['Whproducts.warehouse_id' => $warehouse->subwarehouses[0]->id]);
+                            }, 'Prices' => function ($q) use ($customerType) {
+                                return $q->where(['Prices.customertype_id' => $customerType]);
+                            }]);
+                            if ($categories) {
+                                $packs->where(['Packs.category_id IN' => $categories]);
+                            }
+                            $packs->where(['Packs.statut' => 1,'Packs.loyaltypoints <=' => $empQuery->loyaltypoints_sum]);
+                            $packs->order(['Packs.created' => 'DESC']);
+
+                            $this->loadModel('Users');
+                            $user = $this->Users->get($user_id);
+                            if ($order_id != 0 && $user->role_id == 6) {
+                                $order = $this->Users->Orders->get($order_id, ['contain' => ['Orderpacks']]);
+                                $packsCondition = [];
+                                foreach ($order->orderpacks as $key => $orderPack) {
+                                    $packsCondition[] = $orderPack->pack_id;
+                                }
+                            }
+                            $packs->where(['Packs.category_id !=' => 9]); // excluding Cadeaux
+                            $packs->where(['Packs.id IN' => $packsCondition]);
+                            if ($isDelivery == 0) {
+                                $packs->where(['Packs.statut' => 1]);
+                            }
+                            if ($searchText !== NULL) {
+                                $packs->where(["OR" => [
+                                    ['Packs.title LIKE' => '%' . $searchText . '%'],
+                                    ['lower(Packs.title) LIKE' => '%' . $searchText . '%'],
+                                    ['lower(Packs.code) LIKE' => '%' . $searchText . '%'],
+                                    ['Packs.code LIKE' => '%' . $searchText . '%']
+                                ]]);
+                            }
+                            $packs->limit($limit);
+                            $packs->page($page);
+                            foreach ($packs as $pack) {
+                                $quantityInInstance = 0;
+                                $orderpacks = $this->Packs->Orderpacks->find('all')->contain(['Orders'])->where(['Orders.pofsale_id' => $pofsale->id, 'Orders.statut' => 1, 'Orderpacks.pack_id' => $pack->id]);
+                                foreach ($orderpacks as $orderpack) {
+                                    $quantityInInstance += $orderpack->quantity;
+                                }
+                                $photo = $this->Packs->Photos->find('all')->where(['controleur' => 'packs', 'objectid' => $pack->id])->order(['created' => 'ASC'])->last();
+                                $img = Router::Url('/') . 'webroot/img/unvailable.jpg';
+                                $images = [];
+                                if ($photo) {
+                                    $img = Router::Url('/') . $photo->dir . '/thumbnail700-' . $photo->photo;
+                                    $images[] = Router::Url('/') . $photo->dir . '/thumbnail700-' . $photo->photo;
+                                } else {
+                                    $images[] = $img;
+                                }
+                                $variants = [];
+                                //Sac & Unité
+                                
+                                if ($pack->saletype_id == 1) {
+                                    $variants[0] = [
+                                        'id' => $pack->packunites[0]->unite->id,
+                                        'title' => $pack->packunites[0]->unite->abrev,
+                                        'quantity' => $pack->packunites[0]->quantity,
+                                        'statut' => 1,
+                                    ];
+                                    $variants[1] = [
+                                        'id' => $pack->packunites[0]->unite->parentunite->id,
+                                        'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                        'quantity' => 1,
+                                        'statut' => 1,
+                                    ];
+                                    // Sac
+                                } elseif ($pack->saletype_id == 2) {
+
+                                    $variants[0] = [
+                                        'id' => $pack->packunites[0]->unite->id,
+                                        'title' => $pack->packunites[0]->unite->abrev,
+                                        'quantity' => $pack->packunites[0]->quantity,
+                                        'statut' => 1,
+                                    ];
+                                    $variants[1] = [
+                                        'id' => $pack->packunites[0]->unite->parentunite->id,
+                                        'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                        'quantity' => 1,
+                                        'statut' => 0,
+                                    ];
+                                    //Unité
+                                } elseif ($pack->saletype_id == 4) {
+                                    if($pack->measurement_unit->conversion_factor==1){
+                                    $pack->prices[0]->price=$pack->prices[0]->price*$pack->measurement_quantity;
+                                        $variants[0] = [
+                                            'id' => $pack->id,
+                                            'title' => $pack->measurement_unit->abbreviation,
+                                            'quantity' => 1,
+                                            'statut' => 1,
+                                        ];
+                                    }else{
+                                        $getParent=$this->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                                        if($getParent){
+                                            $pack->prices[0]->price=$pack->prices[0]->price*$getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor);
+                                                $variants[0] = [
+                                                'id' => $pack->id,
+                                                'title' => $getParent->first()->abbreviation,
+                                                'quantity' => 1,
+                                                'statut' => 1,
+                                            ];
+                                        }else{
+                                            $pack->prices[0]->price=$pack->prices[0]->price*$pack->packunites[0]->unite->parentunite->abrev;
+                                            $variants[0] = [
+                                                'id' => $pack->packunites[0]->unite->parentunite->id,
+                                                'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                                'quantity' => 1,
+                                                'statut' => 1,
+                                            ];
+                                        }
+                                    }
+                                        
+                                } else {
+                                    $variants[0] = [
+                                        'id' => $pack->packunites[0]->unite->id,
+                                        'title' => $pack->packunites[0]->unite->abrev,
+                                        'quantity' => $pack->packunites[0]->quantity,
+                                        'statut' => 0,
+                                    ];
+                                    $variants[1] = [
+                                        'id' => $pack->packunites[0]->unite->parentunite->id,
+                                        'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                        'quantity' => 1,
+                                        'statut' => 1,
+                                    ];
+                                }
+                                    if($pack->measurement_unit->conversion_factor==1){
+                                        $loyaltypoints=$pack->measurement_quantity.$pack->measurement_unit->abbreviation;
+                                    }else{
+                                        $getParent=$this->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                                        $loyaltypoints= (($getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor))*$pack->loyaltypoints)."/".$getParent->first()->conversion_factor.$getParent->first()->abbreviation;
+                                    }
+                                // Format tranches for client-side calculation - include ALL system tranches
+                                $tranches = $formatTranches($allTranches, $pack->id,$customerType,$pack->prices[0]->price);
+                                $data[] = [
+                                    "id" => $pack->id,
+                                    "code" => $pack->code,
+                                    "title" => $pack->title,
+                                    "price" => $pack->prices[0]->price,
+                                    "type" => $pack->packunites[0]->statut,
+                                    "quantity" => 100000,
+                                    "image" => $img,
+                                    "images" => $images,
+                                    "statut" => $pack->statut,
+                                    "turnover" => $loyaltypoints,
+                                    "loyalty" => $pack->loyaltypoints,
+                                    "variants" => $variants,
+                                    "tranches" => $tranches,
+                                    "brand" => ["id" => $pack->brand->id, "title" => $pack->brand->title],
+                                    "category" => ["id" => $pack->category->id, "title" => $pack->category->title],
+                                ];
+                            }
+
+                    }else{
+                        $this->loadModel('Customers');
+                        $packsCondition = [];
+                        //7ta yjib yrado control 3la les packs li 3ndou f les commandes
+                        /*$customer = $this->Customers->get($customerId, ['contain' => ['Orders.Orderpacks']]);
+                        foreach ($customer->orders as $order) {
+                            foreach ($order->orderpacks as $orderPack) {
+                                $packsCondition[] = $orderPack->pack_id;
+                            }
+                        }*/
+                        $this->loadModel('Packs');
+                        $packs = $this->Packs->find('all')->contain(['Brands','MeasurementUnits','Turnovers', 'Categories', 'Tranches' => ['Packs', 'Remisetypes'], 'Packunites.Unites.Parentunites', 'Whproducts' => function ($q) use ($warehouse) {
+                            return $q->where(['Whproducts.warehouse_id' => $warehouse->subwarehouses[0]->id]);
+                        }, 'Prices' => function ($q) use ($customerType) {
+                            return $q->where(['Prices.customertype_id' => $customerType]);
+                        }]);
+
+                        if ($categories) {
+                            $packs->where(['Packs.category_id IN' => $categories]);
+                        }
+                        $packs->where(['Packs.statut' => 1]);
+                        $packs->where(['Packs.category_id !=' => 9]); // excluding Cadeaux
+                        $packs->order(['Packs.created' => 'DESC']);
+                        // $packs->where(['Packs.id IN' => $packsCondition]);
+                        if ($isDelivery == 0) {
+                            $packs->where(['Packs.statut' => 1]);
+                        }
+                        if ($searchText !== NULL) {
+                            $packs->where(["OR" => [
+                                ['Packs.title LIKE' => '%' . $searchText . '%'],
+                                ['lower(Packs.title) LIKE' => '%' . $searchText . '%'],
+                                ['lower(Packs.code) LIKE' => '%' . $searchText . '%'],
+                                ['Packs.code LIKE' => '%' . $searchText . '%']
+                            ]]);
+                        }
+                        $packs->limit($limit);
+                        $packs->page($page);
+                        foreach ($packs as $pack) {
+                            $quantityInInstance = 0;
+                            $orderpacks = $this->Packs->Orderpacks->find('all')->contain(['Orders'])->where(['Orders.customer_id' => $customerId, 'Orderpacks.pack_id' => $pack->id]);
+                            foreach ($orderpacks as $orderpack) {
+                                $quantityInInstance += $orderpack->quantity;
+                            }
+                            $photo = $this->Packs->Photos->find('all')->where(['controleur' => 'packs', 'objectid' => $pack->id])->order(['created' => 'ASC'])->last();
+                            $img = Router::Url('/') . 'webroot/img/unvailable.jpg';
+                            $images = [];
+                            if ($photo) {
+                                $img = Router::Url('/') . $photo->dir . '/thumbnail700-' . $photo->photo;
+                                $images[] = Router::Url('/') . $photo->dir . '/thumbnail700-' . $photo->photo;
+                            } else {
+                                $images[] = $img;
+                            }
+                            $variants = [];
+                            //Sac & Unité
+                            
+                            if ($pack->saletype_id == 1) {
+                                $variants[0] = [
+                                    'id' => $pack->packunites[0]->unite->id,
+                                    'title' => $pack->packunites[0]->unite->abrev,
+                                    'quantity' => $pack->packunites[0]->quantity,
+                                    'statut' => 1,
+                                ];
+                                $variants[1] = [
+                                    'id' => $pack->packunites[0]->unite->parentunite->id,
+                                    'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                    'quantity' => 1,
+                                    'statut' => 1,
+                                ];
+                                // Sac
+                            } elseif ($pack->saletype_id == 2) {
+
+                                $variants[0] = [
+                                    'id' => $pack->packunites[0]->unite->id,
+                                    'title' => $pack->packunites[0]->unite->abrev,
+                                    'quantity' => $pack->packunites[0]->quantity,
+                                    'statut' => 1,
+                                ];
+                                $variants[1] = [
+                                    'id' => $pack->packunites[0]->unite->parentunite->id,
+                                    'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                    'quantity' => 1,
+                                    'statut' => 0,
+                                ];
+                                //Unité
+                            } elseif ($pack->saletype_id == 4) {
+                                if($pack->measurement_unit->conversion_factor==1){
+                                $pack->prices[0]->price=$pack->prices[0]->price*$pack->measurement_quantity;
+                                $quantityInInstance=$quantityInInstance/$pack->measurement_quantity;
+                                    $variants[0] = [
+                                        'id' => $pack->id,
+                                        'title' => $pack->measurement_unit->abbreviation,
+                                        'quantity' => 1,
+                                        'statut' => 1,
+                                    ];
+                                }else{
+                                    $getParent=$this->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                                    if($getParent){
+                                        $pack->prices[0]->price=$pack->prices[0]->price*$getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor);
+                                        $quantityInInstance=$quantityInInstance/($getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor));
+                                            $variants[0] = [
+                                            'id' => $pack->id,
+                                            'title' => $getParent->first()->abbreviation,
+                                            'quantity' => 1,
+                                            'statut' => 1,
+                                        ];
+                                    }else{
+                                        $pack->prices[0]->price=$pack->prices[0]->price*$pack->packunites[0]->unite->parentunite->abrev;
+                                        $quantityInInstance=$quantityInInstance/$pack->packunites[0]->unite->parentunite->abrev;
+                                        $variants[0] = [
+                                            'id' => $pack->packunites[0]->unite->parentunite->id,
+                                            'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                            'quantity' => 1,
+                                            'statut' => 1,
+                                        ];
+                                    }
+                                }
+                                    
+                            } else {
+                                $variants[0] = [
+                                    'id' => $pack->packunites[0]->unite->id,
+                                    'title' => $pack->packunites[0]->unite->abrev,
+                                    'quantity' => $pack->packunites[0]->quantity,
+                                    'statut' => 0,
+                                ];
+                                $variants[1] = [
+                                    'id' => $pack->packunites[0]->unite->parentunite->id,
+                                    'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                    'quantity' => 1,
+                                    'statut' => 1,
+                                ];
+                            }
+                            if($pack->measurement_unit->conversion_factor==1){
+                                $loyaltypoints=$pack->measurement_quantity.$pack->measurement_unit->abbreviation;
+                            }else{
+                                $getParent=$this->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                                $loyaltypoints= (($getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor))*$pack->loyaltypoints)."/".$getParent->first()->conversion_factor.$getParent->first()->abbreviation;
+                            }
+                            // Format tranches for client-side calculation - include ALL system tranches
+                            $tranches = $formatTranches($allTranches, $pack->id,$customerType,$pack->prices[0]->price);
+                            $data[] = [
+                                "id" => $pack->id,
+                                "code" => $pack->code,
+                                "title" => $pack->title,
+                                "price" => $pack->prices[0]->price,
+                                "type" => $pack->packunites[0]->statut,
+                                "quantity" => 100000,
+                                "image" => $img,
+                                "images" => $images,
+                                "statut" => $pack->statut,
+                                "turnover" => $loyaltypoints,
+                                "loyalty" => $pack->loyaltypoints,
+                                "variants" => $variants,
+                                "tranches" => $tranches,
+                                "brand" => ["id" => $pack->brand->id, "title" => $pack->brand->title],
+                                "category" => ["id" => $pack->category->id, "title" => $pack->category->title],
+                            ];
+                        }
+                    }
+                }else{
+                    $this->loadModel('Categoryuserpacks');
+                    $user=$this->Categoryuserpacks->Categoryusers->Users->get($user_id);
+                    $packsCondition=[];
+                    $categoryuserpacks = $this->Categoryuserpacks->find('all')->where(['Categoryuserpacks.categoryuser_id' => $user->categoryuser_id]);
+                    foreach ($categoryuserpacks as $categoryuserpack) {
+                        $packsCondition[] = $categoryuserpack->pack_id;
+                    }
+                    $this->loadModel('Packs');
+                    $packs = $this->Packs->find('all')->contain(['Brands','MeasurementUnits','Turnovers', 'Categories', 'Tranches' => ['Packs', 'Remisetypes'], 'Packunites.Unites.Parentunites', 'Whproducts' => function ($q) use ($warehouse) {
+                        return $q->where(['Whproducts.warehouse_id' => $warehouse->subwarehouses[0]->id]);
+                    }, 'Prices' => function ($q) use ($customerType) {
+                        return $q->where(['Prices.customertype_id' => $customerType]);
+                    }]);
+                    
+                    if ($categories) {
+                        $packs->where(['Packs.category_id IN' => $categories]);
+                    }
+                    $packs->where(['Packs.category_id !=' => 9]);
+                    $packs->where(['Packs.statut' => 1]);
+                    $packs->where(['Packs.category_id !=' => 9]); // excluding Cadeaux
+                    $packs->order(['Packs.created' => 'DESC']);
+
+                    $this->loadModel('Users');
+                    
+                    $user = $this->Users->get($user_id);
+                    $packsCondition = [];
+                    if ($order_id != 0 && $user->role_id == 6) {
+                        $order = $this->Users->Orders->get($order_id, ['contain' => ['Orderpacks']]);
+                        foreach ($order->orderpacks as $key => $orderPack) {
+                            $packsCondition[] = $orderPack->pack_id;
+                        }
+                    }
+                    if($packsCondition){
+                        $packs->where(['Packs.id IN' => $packsCondition]);
+                    }
+                    if ($isDelivery == 0) {
+                        $packs->where(['Packs.statut' => 1]);
+                    }
+                    if ($searchText !== NULL) {
+                        $packs->where(["OR" => [
+                            ['Packs.title LIKE' => '%' . $searchText . '%'],
+                            ['lower(Packs.title) LIKE' => '%' . $searchText . '%'],
+                            ['lower(Packs.code) LIKE' => '%' . $searchText . '%'],
+                            ['Packs.code LIKE' => '%' . $searchText . '%']
+                        ]]);
+                    }
+                    $packs->limit($limit);
+                    $packs->page($page);
+                    foreach ($packs as $pack) {
+                            $quantityInInstance = $pack->whproducts[0]->quantity;
+                            $orderpacks = $this->Packs->Orderpacks->find('all')->contain(['Orders'])->where(['Orders.customer_id' => $customerId, 'Orderpacks.pack_id' => $pack->id]);
+                            foreach ($orderpacks as $orderpack) {
+                                $quantityInInstance -= $orderpack->quantity;
+                            }
+                            $photo = $this->Packs->Photos->find('all')->where(['controleur' => 'packs', 'objectid' => $pack->id])->order(['created' => 'ASC'])->last();
+                            $img = Router::Url('/') . 'webroot/img/unvailable.jpg';
+                            $images = [];
+                            if ($photo) {
+                                $img = Router::Url('/') . $photo->dir . '/thumbnail700-' . $photo->photo;
+                                $images[] = Router::Url('/') . $photo->dir . '/thumbnail700-' . $photo->photo;
+                            } else {
+                                $images[] = $img;
+                            }
+                            $variants = [];
+                            //Sac & Unité
+                            
+                            if ($pack->saletype_id == 1) {
+                                $variants[0] = [
+                                    'id' => $pack->packunites[0]->unite->id,
+                                    'title' => $pack->packunites[0]->unite->abrev,
+                                    'quantity' => $pack->packunites[0]->quantity,
+                                    'statut' => 1,
+                                ];
+                                $variants[1] = [
+                                    'id' => $pack->packunites[0]->unite->parentunite->id,
+                                    'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                    'quantity' => 1,
+                                    'statut' => 1,
+                                ];
+                                // Sac
+                            } elseif ($pack->saletype_id == 2) {
+
+                                $variants[0] = [
+                                    'id' => $pack->packunites[0]->unite->id,
+                                    'title' => $pack->packunites[0]->unite->abrev,
+                                    'quantity' => $pack->packunites[0]->quantity,
+                                    'statut' => 1,
+                                ];
+                                $variants[1] = [
+                                    'id' => $pack->packunites[0]->unite->parentunite->id,
+                                    'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                    'quantity' => 1,
+                                    'statut' => 0,
+                                ];
+                                //Unité
+                            } elseif ($pack->saletype_id == 4) {
+                                if($pack->measurement_unit->conversion_factor==1){
+                                $pack->prices[0]->price=$pack->prices[0]->price*$pack->measurement_quantity;
+                                $quantityInInstance=$quantityInInstance/$pack->measurement_quantity;
+                                    $variants[0] = [
+                                        'id' => $pack->id,
+                                        'title' => $pack->measurement_unit->abbreviation,
+                                        'quantity' => 1,
+                                        'statut' => 1,
+                                    ];
+                                }else{
+                                    $getParent=$this->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                                    if($getParent){
+                                        $pack->prices[0]->price=$pack->prices[0]->price*$getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor);
+                                        $quantityInInstance=$quantityInInstance/($getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor));
+                                            $variants[0] = [
+                                            'id' => $pack->id,
+                                            'title' => $getParent->first()->abbreviation,
+                                            'quantity' => 1,
+                                            'statut' => 1,
+                                        ];
+                                    }else{
+                                        $pack->prices[0]->price=$pack->prices[0]->price*$pack->packunites[0]->unite->parentunite->abrev;
+                                        $quantityInInstance=$quantityInInstance/$pack->packunites[0]->unite->parentunite->abrev;
+                                        $variants[0] = [
+                                            'id' => $pack->packunites[0]->unite->parentunite->id,
+                                            'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                            'quantity' => 1,
+                                            'statut' => 1,
+                                        ];
+                                    }
+                                }
+                                    
+                            } else {
+                                $variants[0] = [
+                                    'id' => $pack->packunites[0]->unite->id,
+                                    'title' => $pack->packunites[0]->unite->abrev,
+                                    'quantity' => $pack->packunites[0]->quantity,
+                                    'statut' => 0,
+                                ];
+                                $variants[1] = [
+                                    'id' => $pack->packunites[0]->unite->parentunite->id,
+                                    'title' => $pack->packunites[0]->unite->parentunite->abrev,
+                                    'quantity' => 1,
+                                    'statut' => 1,
+                                ];
+                            }
+                            if($pack->measurement_unit->conversion_factor==1){
+                                $loyaltypoints=$pack->measurement_quantity.$pack->measurement_unit->abbreviation;
+                            }else{
+                                $getParent=$this->Packs->MeasurementUnits->find('all')->where(['type'=>$pack->measurement_unit->type,'conversion_factor'=>($pack->measurement_unit->conversion_factor*1000)]);
+                                $loyaltypoints= (($getParent->first()->conversion_factor/($pack->measurement_quantity*$pack->measurement_unit->conversion_factor))*$pack->loyaltypoints)."/".$getParent->first()->conversion_factor.$getParent->first()->abbreviation;
+                            }
+                            // Format tranches for client-side calculation - include ALL system tranches
+                            $tranches = $formatTranches($allTranches, $pack->id, $customerType,$pack->prices[0]->price);
+                            $data[] = [
+                                "id" => $pack->id,
+                                "code" => $pack->code,
+                                "title" => $pack->title,
+                                "price" => $pack->prices[0]->price,
+                                "type" => $pack->packunites[0]->statut,
+                                "quantity" => ($isDepot==1) ? 1000000:(($warehouse_id==1) ? 100000 : $quantityInInstance) ,
+                                "image" => $img,
+                                "images" => $images,
+                                "statut" => $pack->statut,
+                                "turnover" => $loyaltypoints,
+                                "loyalty" => $pack->loyaltypoints,
+                                "variants" => $variants,
+                                "tranches" => $tranches,
+                                "brand" => ["id" => $pack->brand->id, "title" => $pack->brand->title],
+                                "category" => ["id" => $pack->category->id, "title" => $pack->category->title],
+                            ];
+                        }
+                    }
+
+            }
+        }
+        $response = ["status" => 200, "msg" => "Success", "data" => $data];
+
+        header("Access-Control-Allow-Origin: *");
+        header("Access-Control-Allow-Credentials: true");
+        header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, Access-Control-Allow-Origin");
+        header("Content-Type: application/json; charset=UTF-8");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        $this->set(compact('response'));
+        $this->set('_serialize', 'response');
+        $this->RequestHandler->renderAs($this, 'json');
+    }

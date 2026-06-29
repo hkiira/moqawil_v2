@@ -1,0 +1,165 @@
+"use strict";
+
+var KTDatatableRemoteAjaxDemo = function () {
+
+    var demo = function () {
+
+        var datatable = $('#kt_datatable').KTDatatable({
+
+            data: {
+                type: 'remote',
+                source: {
+                    read: {
+                        url: HOST_URL,
+                        map: function (raw) {
+                            var dataSet = raw;
+                            if (typeof raw.data !== 'undefined') {
+                                dataSet = raw.data;
+                            }
+                            return dataSet;
+                        },
+                    },
+                },
+                pageSize: 10,
+                serverPaging: true,
+                serverFiltering: true,
+                serverSorting: true,
+            },
+
+            // layout definition
+            layout: {
+                scroll: true,
+                footer: true,
+            },
+
+            // column sorting
+            sortable: true,
+
+            pagination: true,
+
+            search: {
+                input: $('#kt_datatable_search_query'),
+                key: 'generalSearch'
+            },
+
+
+            columns: [
+                {
+                    field: 'name',
+                    title: 'Nom',
+                    sortable: 'asc',
+                    template: function (row) {
+                        return '<span style="width: 250px;">\
+                				<div class="d-flex align-items-center">\
+									<div class="symbol symbol-40 flex-shrink-0">\
+										<div class="symbol-label" style="background-image:url(' + row.img + ')"></div>\
+									</div>\
+									<div class="ml-2">\
+										<div class="text-dark-75 font-weight-bold line-height-sm">' + row.name + '</div>\
+										<a href="#" class="font-size-sm text-dark-50 text-hover-primary">' + row.code + '</a>\
+									</div>\
+								</div>\
+							</span>';
+                    },
+                }, {
+                    field: 'category',
+                    title: 'Catégorie',
+                }, {
+                    field: 'status',
+                    title: 'Statut',
+                    autoHide: false,
+                    // callback function support for column rendering
+                    template: function (row) {
+                        var status = {
+                            0: {
+                                'title': 'Innactif',
+                                'class': ' label-light-danger'
+                            },
+                            1: {
+                                'title': 'Actif',
+                                'class': ' label-light-success'
+                            },
+                        };
+                        return '<span class="label font-weight-bold label-lg ' + status[row.status].class + ' label-inline">' + status[row.status].title + '</span>';
+                    },
+                }, {
+                    field: 'actions',
+                    title: 'Actions',
+                    sortable: false,
+                    overflow: 'visible',
+                    autoHide: false,
+                    template: function (row) {
+                        if (row.parentcategory == "aucune") {
+                            return '<div class="dropdown dropdown-inline">\
+                                <a href="javascript:;" class="btn btn-sm btn-clean btn-icon" data-toggle="dropdown">\
+                                    <i class="la la-cog"></i>\
+                                </a>\
+                                <div class="dropdown-menu dropdown-menu-sm dropdown-menu-right">\
+                                    <ul class="nav nav-hoverable flex-column">\
+                                        <li class="nav-item"><a class="nav-link" href="/categories/edit/'+ row.id + '"><i class="nav-icon la la-edit"></i><span class="nav-text">Modifier</span></a></li>\
+                                        <li class="nav-item"><a class="nav-link" href="/categories/edit/'+ row.id + '/image"><i class="nav-icon la la-edit"></i><span class="nav-text">Modifier l\'image</span></a></li>\
+                                        <li class="nav-item"><a class="nav-link" href="/categories/index/2/'+ row.id + '"><i class="nav-icon la la-edit"></i><span class="nav-text">Liste des categories</span></a></li>\
+                                    </ul>\
+                                </div>\
+                            </div>';
+                        } else {
+                            return '<div class="dropdown dropdown-inline">\
+                                <a href="javascript:;" class="btn btn-sm btn-clean btn-icon" data-toggle="dropdown">\
+                                    <i class="la la-cog"></i>\
+                                </a>\
+                                <div class="dropdown-menu dropdown-menu-sm dropdown-menu-right">\
+                                    <ul class="nav nav-hoverable flex-column">\
+                                        <li class="nav-item"><a class="nav-link" href="/categories/edit/'+ row.id + '"><i class="nav-icon la la-edit"></i><span class="nav-text">Modifier</span></a></li>\
+                                        <li class="nav-item"><a class="nav-link" href="/categories/edit/'+ row.id + '/image"><i class="nav-icon la la-edit"></i><span class="nav-text">Modifier l\'image</span></a></li>\
+                                        <li class="nav-item"><a class="nav-link" href="/categories/view/'+ row.id + '"><i class="nav-icon la la-edit"></i><span class="nav-text">Liste des articles</span></a></li>\
+                                        <li class="nav-item"><a class="nav-link" href="/prices/edit/'+ row.id + '"><i class="nav-icon la la-edit"></i><span class="nav-text">Modification des prix</span></a></li>\
+                                    </ul>\
+                                </div>\
+                            </div>';
+                        }
+
+                    },
+                }],
+            translate: {
+                records: {
+                    processing: 'Chargement...',
+                    noRecords: 'Aucun enregistrement trouvé',
+                },
+                toolbar: {
+                    pagination: {
+                        items: {
+                            default: {
+                                first: 'Premier',
+                                prev: 'Précédent',
+                                next: 'Suivant',
+                                last: 'Dernière',
+                                more: 'Plus de pages',
+                                input: 'N° de page',
+                                select: 'Sélectionnez la taille de la page',
+                            },
+                            info: 'Vue {{start}} - {{end}} de {{total}} enregistrements',
+                        },
+                    },
+                },
+            },
+        });
+
+
+        $('#kt_datatable_search_status').on('change', function () {
+            datatable.search($(this).val().toLowerCase(), 'Status');
+        });
+
+        $(' #kt_datatable_search_status').selectpicker();
+    };
+
+    return {
+        // public functions
+        init: function () {
+            demo();
+        },
+    };
+}();
+
+jQuery(document).ready(function () {
+    KTDatatableRemoteAjaxDemo.init();
+});

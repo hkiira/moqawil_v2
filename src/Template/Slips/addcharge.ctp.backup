@@ -1,0 +1,82 @@
+<?php
+$this->extend('/Common/crud');
+
+$this->loadHelper('Form', [
+    'templates' => 'app_form',
+]);
+
+$this->assign('objet', $this->Form->create($slip));
+$this->assign('title', 'Ajouter un nouveau bon de charge');
+?>
+<div class="card-body">
+    <div class="row">
+        <div class="col-xl-6">
+            <?= $this->Form->control('whnature_id', [
+                'options' => $whnatures,
+                'class' => 'select2 form-control',
+                'label' => 'Nature de transfert'
+            ]); ?>
+        </div>
+        <div class="col-xl-6">
+            <?= $this->Form->control('warehoused', [
+                'type' => 'select',
+                'options' => $warehoused,
+                'class' => 'select2 form-control',
+                'label' => 'Entrepôt de réception',
+                'empty' => true
+            ]); ?>
+        </div>
+        <div class="col-xl-12">
+            <?= $this->Form->control('raison', [
+                'label' => 'Raison'
+            ]); ?>
+        </div>
+    </div>
+    <div class="slips"></div>
+</div>
+<?= $this->Html->scriptStart(['block' => 'script_bottom']) ?>
+    $.fn.select2.defaults.set("width", "100%");
+    
+    // Initialize select2 for warehouse selection
+    $('#warehoused').select2({
+        placeholder: 'Sélectionnez un entrepôt'
+    });
+    
+    $('.select2').select2();
+
+    // Load stock data when warehouse is selected
+    $("#warehoused").change(function() {
+        const warehouseId = $(this).val();
+        const natureId = $("#whnature-id").val();
+        
+        if (warehouseId && natureId) {
+            searchTags(warehouseId, natureId, 'chargestock', 'slips');
+        }
+    });
+
+    /**
+     * Load stock data via AJAX
+     * @param {string} keyword - Warehouse ID
+     * @param {string} keyword1 - Nature ID
+     * @param {string} url - AJAX endpoint
+     * @param {string} div - Target div class
+     */
+    function searchTags(keyword, keyword1, url, div) {
+        $.ajax({
+            method: 'GET',
+            url: url,
+            data: {
+                keyword: keyword,
+                keyword1: keyword1
+            },
+            success: function(response) {
+                $('.' + div).html(response);
+            },
+            error: function() {
+                $('.' + div).html('<div class="alert alert-danger">Erreur lors du chargement des données</div>');
+            }
+        });
+    }
+
+<?= $this->Html->scriptEnd(); ?>
+

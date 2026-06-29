@@ -1,0 +1,534 @@
+{
+  "meta": {
+    "document": "CakePHP Technical Audit for Laravel Migration",
+    "version": "1.0",
+    "generatedAt": "2026-03-04",
+    "framework": {
+      "name": "CakePHP",
+      "version": "3.8.x"
+    },
+    "scope": {
+      "included": [
+        "src/**",
+        "config/**",
+        "composer.json"
+      ],
+      "excluded": [
+        "first/**",
+        "install/**",
+        "first/last/**",
+        "vendor/**"
+      ]
+    }
+  },
+  "applicationOverview": {
+    "architecture": "MVC",
+    "folders": {
+      "controllers": "src/Controller",
+      "models": [
+        "src/Model/Table",
+        "src/Model/Entity"
+      ],
+      "views": [
+        "src/View",
+        "templates"
+      ],
+      "console": "src/Shell",
+      "migrations": "config/Migrations"
+    },
+    "plugins": [
+      "Josegonzalez/Upload",
+      "CakePdf"
+    ],
+    "components": [
+      "RequestHandler",
+      "Flash",
+      "Auth"
+    ],
+    "helpers": {
+      "custom": [],
+      "notes": "No custom helpers detected in root app"
+    },
+    "behaviors": [
+      "Timestamp (widespread)",
+      "Josegonzalez/Upload.Upload (Photos, Slides)"
+    ],
+    "middleware": [
+      "ErrorHandlerMiddleware",
+      "AssetMiddleware",
+      "RoutingMiddleware"
+    ],
+    "eventSystem": {
+      "customUsage": [
+        "CommissionTiersTable::beforeSave"
+      ],
+      "notes": "Minimal explicit event-driven design in app code"
+    },
+    "nonStandardPatterns": [
+      "Fat controllers (ApiController, SellersController, MetasalesController, UsersController)",
+      "Manual JSON responses via header + echo + exit",
+      "Mixed legacy/new auth styles",
+      "Legacy duplicate controllers (*99, *999, test variants)"
+    ]
+  },
+  "databaseArchitecture": {
+    "tables": [
+      "accesroles",
+      "accesses",
+      "accesusers",
+      "actions",
+      "adresses",
+      "billingpacks",
+      "billings",
+      "billingtypes",
+      "brands",
+      "categories",
+      "categoryuserpacks",
+      "categoryusers",
+      "charges",
+      "cities",
+      "commissionpays",
+      "commissions",
+      "commission_tiers",
+      "companies",
+      "companycodes",
+      "compensations",
+      "controlleuractions",
+      "controlleurs",
+      "customers",
+      "customertypes",
+      "exitslips",
+      "exitsliptypes",
+      "goals",
+      "goaltypes",
+      "historypayements",
+      "inventories",
+      "invproducts",
+      "loyaltyorderpacks",
+      "loyaltypointgifts",
+      "measurement_units",
+      "moneyboxs",
+      "orderpackproducts",
+      "orderpacks",
+      "order_payments",
+      "orders",
+      "packagingtypes",
+      "packproducts",
+      "packs",
+      "packtaxes",
+      "packtypes",
+      "packunites",
+      "paymentgoals",
+      "payment_methods",
+      "payment_splits",
+      "payments",
+      "photos",
+      "pofsales",
+      "pofsbrands",
+      "pofsmodeles",
+      "pofstypes",
+      "pofsusers",
+      "prices",
+      "pricetypes",
+      "product_packages",
+      "products",
+      "products_product_packages",
+      "productunites",
+      "receipts",
+      "regions",
+      "remisetypes",
+      "reports",
+      "roles",
+      "saletypes",
+      "shippings",
+      "sliders",
+      "slides",
+      "slipproducts",
+      "slips",
+      "sliptypes",
+      "stock_movements",
+      "supplierorders",
+      "suppliers",
+      "supporderproducts",
+      "tarifcategories",
+      "tarifs",
+      "tariftypes",
+      "tarifways",
+      "tohaves",
+      "tohavetypes",
+      "trancheprices",
+      "tranches",
+      "turnovers",
+      "unites",
+      "users",
+      "variations",
+      "visites",
+      "warehouses",
+      "whnatures",
+      "whproducts",
+      "whtypes",
+      "whuserproducts",
+      "whusers",
+      "zones",
+      "zoneusers"
+    ],
+    "keyRelationships": {
+      "hubs": [
+        "companies",
+        "users",
+        "orders",
+        "packs",
+        "warehouses"
+      ],
+      "notes": "Primarily belongsTo/hasMany across operational domains"
+    },
+    "pivots": [
+      {
+        "table": "order_payments",
+        "relation": "orders <-> payment_methods",
+        "type": "through"
+      },
+      {
+        "table": "products_product_packages",
+        "relation": "product_packages <-> products",
+        "type": "belongsToMany"
+      },
+      {
+        "table": "commission_tiers_packs",
+        "relation": "commission_tiers <-> packs",
+        "type": "belongsToMany"
+      }
+    ],
+    "customFinders": {
+      "CommissionTiersTable": [
+        "findActive",
+        "findByQuantityAndPacks",
+        "findByCompany"
+      ],
+      "CompensationsTable": [
+        "findByDateRange",
+        "findByUserAndStatus",
+        "findPending",
+        "findPaid"
+      ]
+    },
+    "virtualFields": [
+      "CommissionTier::_getQuantityRange",
+      "CommissionTier::_getFormattedCommission",
+      "StockMovement::_getAssociatedItem",
+      "Whproduct::_getPack",
+      "Whproduct::_getProduct"
+    ],
+    "modelBehaviors": [
+      "Timestamp",
+      "Josegonzalez/Upload.Upload"
+    ],
+    "constraintsAndIndexes": {
+      "orm": "Frequent buildRules with existsIn/isUnique",
+      "migrations": [
+        "Measurement unit FK additions",
+        "Product package tables",
+        "Payment methods and order payments",
+        "Commission tiers and indexes",
+        "Tranche apply_type and quantity_unit_type"
+      ],
+      "warning": "Migration files appear partial relative to legacy schema lifetime"
+    }
+  },
+  "authenticationAuthorization": {
+    "authentication": {
+      "primary": "AuthComponent (CakePHP)",
+      "sessionBased": true,
+      "tokenBased": false
+    },
+    "authorization": {
+      "mode": "ControllerAuthorize + AppController::isAuthorized",
+      "strategy": "Custom RBAC matrix loaded into session user payload"
+    },
+    "roleManagement": {
+      "tables": [
+        "roles",
+        "accesses",
+        "controlleuractions",
+        "accesroles",
+        "accesusers"
+      ],
+      "flow": "Permissions computed at login and checked per action"
+    },
+    "flows": {
+      "web": [
+        "UsersController::login",
+        "UsersController::logout"
+      ],
+      "apiMobile": [
+        "ApiController::loginAdmin",
+        "ApiController::login",
+        "ApiController::logincustomer",
+        "ApiController::customerSignup",
+        "SellersController auth/customer actions"
+      ]
+    },
+    "security": {
+      "csrfMiddleware": "Defined in routes scope but commented out",
+      "notes": "Security mostly controller/component-level"
+    }
+  },
+  "businessLogicMapping": {
+    "style": "Fat controllers, thin-to-medium models",
+    "modules": [
+      {
+        "name": "Identity and Access",
+        "controllers": [
+          "UsersController",
+          "RolesController",
+          "AccessesController",
+          "AccesrolesController",
+          "AccesusersController",
+          "ActionsController",
+          "ControlleursController"
+        ],
+        "responsibilities": [
+          "User lifecycle",
+          "Role assignment",
+          "Permission graph enforcement"
+        ]
+      },
+      {
+        "name": "Sales and Order Lifecycle",
+        "controllers": [
+          "OrdersController",
+          "OrderpacksController",
+          "OrderpackproductsController",
+          "ShippingsController",
+          "SlipsController",
+          "ReportsController",
+          "ApiController",
+          "SellersController"
+        ],
+        "responsibilities": [
+          "Order capture/edit/cancel",
+          "Shipping transitions",
+          "Report and slip orchestration",
+          "Client/mobile payload assembly"
+        ]
+      },
+      {
+        "name": "Catalog and Pricing",
+        "controllers": [
+          "ProductsController",
+          "PacksController",
+          "CategoriesController",
+          "BrandsController",
+          "PricesController",
+          "TarifsController",
+          "TranchesController",
+          "MeasurementUnitsController",
+          "ProductPackagesController"
+        ],
+        "responsibilities": [
+          "Catalog CRUD",
+          "Pricing and tariff computation",
+          "Packaging/measurement dimensions"
+        ]
+      },
+      {
+        "name": "Stock and Procurement",
+        "controllers": [
+          "WarehousesController",
+          "WhproductsController",
+          "InventoriesController",
+          "StockMovementsController",
+          "SupplierordersController",
+          "SupporderproductsController",
+          "ReceiptsController"
+        ],
+        "responsibilities": [
+          "Inventory management",
+          "Supplier order intake",
+          "Warehouse routing and assignments"
+        ]
+      },
+      {
+        "name": "Finance and Payments",
+        "controllers": [
+          "PaymentsController",
+          "PaymentMethodsController",
+          "OrderPaymentsController",
+          "CommissionsController",
+          "CommissionTiersController",
+          "CompensationsController",
+          "MoneyboxsController"
+        ],
+        "responsibilities": [
+          "Split payments",
+          "Commission and compensation calculations",
+          "Cashbox/reporting workflows"
+        ]
+      },
+      {
+        "name": "Customer and Loyalty",
+        "controllers": [
+          "CustomersController",
+          "CustomertypesController",
+          "LoyaltypointsController",
+          "LoyaltyorderpacksController",
+          "ZonesController",
+          "RegionsController",
+          "CitiesController"
+        ],
+        "responsibilities": [
+          "Customer profile and segmentation",
+          "Loyalty accrual/redemption linkage",
+          "Geo-routing dimensions"
+        ]
+      }
+    ],
+    "validationProfile": "Extensive validationDefault/buildRules across tables; stronger domain validation in CommissionTiers and OrderPayments"
+  },
+  "backgroundProcesses": {
+    "httpCron": {
+      "controller": "CronController",
+      "actions": [
+        "index (reminder email dispatch)",
+        "genererrapport (report generation and order linking)"
+      ],
+      "risk": "Web-triggered cron endpoint with broad allow behavior"
+    },
+    "shellCommands": [
+      "HelloShell",
+      "ReportShell",
+      "ConsoleShell"
+    ],
+    "queue": {
+      "present": false,
+      "notes": "No dedicated worker/queue abstraction found"
+    },
+    "scheduler": {
+      "frameworkNative": false,
+      "notes": "Likely external cron invoking shell/controller endpoints"
+    }
+  },
+  "apiLayer": {
+    "structure": {
+      "versioning": "none",
+      "routeStrategy": "fallback routes",
+      "primaryController": "ApiController"
+    },
+    "auth": {
+      "method": "Session/AuthComponent style",
+      "jwt": false,
+      "oauth": false
+    },
+    "responseFormat": {
+      "style": "manual JSON output with headers and echo",
+      "consistency": "mixed"
+    },
+    "keyEndpoints": [
+      "homeAdmin",
+      "totalHome",
+      "loginAdmin",
+      "login",
+      "shippingsToDo",
+      "validateShipping",
+      "cancelShipping",
+      "shippingsCompleted",
+      "produits",
+      "DelivreyStock",
+      "logincustomer",
+      "changename",
+      "customerSignup",
+      "changeadresse",
+      "myorders",
+      "myloyaltypoints",
+      "addOrder",
+      "searchProducts",
+      "allHomeProducts",
+      "newHomeProducts",
+      "trendingHomeProducts",
+      "recommendedHomeProducts",
+      "homeSliders",
+      "homeCategories",
+      "homeBrands",
+      "tabCategoryProducts",
+      "allCategoryProducts",
+      "newCategoryProducts",
+      "trendingCategoryProducts",
+      "recommendedCategoryProducts",
+      "categorySliders",
+      "tabBrandProducts",
+      "allBrandProducts",
+      "newBrandProducts",
+      "trendingBrandProducts",
+      "recommendedBrandProducts",
+      "brandSliders"
+    ]
+  },
+  "thirdPartyIntegrations": {
+    "pdf": [
+      "CakePdf plugin",
+      "Mpdf direct usage"
+    ],
+    "spreadsheet": [
+      "PhpSpreadsheet imports/exports"
+    ],
+    "fileUpload": [
+      "Josegonzalez Upload behavior"
+    ],
+    "email": [
+      "Cake Email in CronController and shells",
+      "gmail transport reference"
+    ],
+    "externalPayments": {
+      "detected": false,
+      "notes": "No strong Stripe/PayPal gateway integration signatures in root app"
+    },
+    "smsWebhooks": {
+      "detected": false
+    },
+    "coupling": "Integration logic embedded in controllers/shells"
+  },
+  "migrationRiskComplexity": {
+    "easyAreas": [
+      "Simple CRUD modules with standard ORM rules",
+      "Straightforward relation and timestamp mapping to Eloquent"
+    ],
+    "complexAreas": [
+      "Custom RBAC matrix and session access payload behavior",
+      "Monolithic controller orchestration",
+      "Inconsistent API response patterns",
+      "Distributed order/shipping/report state transitions"
+    ],
+    "technicalDebt": [
+      "Duplicate legacy controllers/files",
+      "Mixed authentication paradigms",
+      "Hardcoded defaults and assumptions",
+      "Partial migration history for legacy schema"
+    ],
+    "recommendedApproach": [
+      "Freeze contracts and endpoint payloads first",
+      "Migrate Identity/RBAC before transactional domains",
+      "Reverse-engineer complete live schema before final Laravel migrations",
+      "Introduce service layer during migration",
+      "Standardize API versioning/auth/response envelope",
+      "Replace HTTP cron with Laravel Scheduler + queues",
+      "Use phased strangler rollout for finance/stock critical paths"
+    ]
+  },
+  "migrationAgentHints": {
+    "priorityOrder": [
+      "Identity + RBAC parity",
+      "Order + Shipping + Report pipeline",
+      "Payments and commission computation",
+      "Catalog/pricing",
+      "Stock/procurement",
+      "API contract hardening"
+    ],
+    "criticalParityChecks": [
+      "Permission matrix behavior at controller/action level",
+      "Order status transitions",
+      "Shipment lifecycle transitions",
+      "Commission tier resolution and amount computation",
+      "Split-payment and debt calculations"
+    ]
+  }
+}
