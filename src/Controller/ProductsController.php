@@ -102,10 +102,6 @@ class ProductsController extends AppController
             }
             $datas['whproducts'] = $whproducts; // This will be part of $datas passed to patchEntity
 
-            if ($datas['productunites'][0]['quantity'] <= 0) {
-                $this->Flash->error(__('Merci de vérfier la quantité du Carton/Sac.'));
-                return $this->redirect(['action' => 'add']);
-            }
             $datas['whproducts'] = $whproducts;
 
             $increment = 0;
