@@ -37,7 +37,8 @@ class ProductsController extends AppController
             'conditions' => [
                 'Categories.statut' => 1,
                 'Categories.type' => 'product',
-                'Categories.company_id' => $this->Auth->user('company_id')
+                'Categories.company_id' => $this->Auth->user('company_id'),
+                'Categories.category_id IS NOT' => NULL
             ]
         ]); // Fetch categories for the filter
 
