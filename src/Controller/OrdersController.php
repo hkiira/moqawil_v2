@@ -1432,8 +1432,8 @@ class OrdersController extends AppController
             'Customers.name',
             'Zones.title',
             'loyaltypoints_sum' => $datas->newExpr(
-                'SUM(CASE WHEN Orders.ordertype_id = 1 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END) - '
-                . 'SUM(CASE WHEN Orders.ordertype_id = 2 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END)'
+                'SUM(CASE WHEN Orders.ordertype_id = 1 AND Orders.statut = 6 AND Orderpacks.statut = 6 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END) - '
+                . 'SUM(CASE WHEN Orders.ordertype_id = 2 AND Orders.statut = 6 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END)'
             )
         ]);
         $datas->where([
@@ -1509,8 +1509,8 @@ class OrdersController extends AppController
                     'Customertypes.title',
                     'Customers.statut',
                     'loyaltypoints_sum' => $empQuery->newExpr(
-                        'SUM(CASE WHEN Orders.ordertype_id = 1 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END) - '
-                        . 'SUM(CASE WHEN Orders.ordertype_id = 2 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END)'
+                        'SUM(CASE WHEN Orders.ordertype_id = 1 AND Orders.statut = 6 AND Orderpacks.statut = 6 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END) - '
+                        . 'SUM(CASE WHEN Orders.ordertype_id = 2 AND Orders.statut = 6 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END)'
                     )
                 ])->group(['Customers.id']);
             $packs = $this->Orders->Orderpacks->Packs->find('all')->contain([
@@ -1703,8 +1703,8 @@ class OrdersController extends AppController
                         'Customertypes.title',
                         'Customers.statut',
                         'loyaltypoints_sum' => $empQuery->newExpr(
-                            'SUM(CASE WHEN Orders.ordertype_id = 1 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END) - '
-                            . 'SUM(CASE WHEN Orders.ordertype_id = 2 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END)'
+                            'SUM(CASE WHEN Orders.ordertype_id = 1 AND Orders.statut = 6 AND Orderpacks.statut = 6 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END) - '
+                            . 'SUM(CASE WHEN Orders.ordertype_id = 2 AND Orders.statut = 6 THEN Orderpacks.loyaltypoints * Orderpacks.quantity ELSE 0 END)'
                         )
                     ])->group(['Customers.id']);
                 $packs = $this->Orders->Orderpacks->Packs->find('all')->contain([

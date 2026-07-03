@@ -13,10 +13,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
  * @property \App\Model\Table\CustomersTable $Customers
  *
  * @method \App\Model\Entity\Customer[]|\Cake\Datasource\ResultSetInterface paginate($object = null, array $settings = [])
- 
+
  0: innactif
  1: actif
- 
+
  */
 class CustomersController extends AppController
 {
@@ -25,62 +25,64 @@ class CustomersController extends AppController
      *
      * @return \Cake\Http\Response|null
      */
-    public function index($id=null){
-        if($id==null){
-            $id=1;
+    public function index($id = null)
+    {
+        if ($id == null) {
+            $id = 1;
         }
-        $customertypes = $this->Customers->Customertypes->find('list')->where(['company_id'=>$this->Auth->user('company_id')]);
-        $zones = $this->Customers->Zones->find('all')->contain(['Subzones'])->where(['Zones.company_id'=>$this->Auth->user('company_id'),'Zones.zone_id IS'=>NULL]);
-        $this->set(compact('id', 'customertypes','zones'));
+        $customertypes = $this->Customers->Customertypes->find('list')->where(['company_id' => $this->Auth->user('company_id')]);
+        $zones = $this->Customers->Zones->find('all')->contain(['Subzones'])->where(['Zones.company_id' => $this->Auth->user('company_id'), 'Zones.zone_id IS' => NULL]);
+        $this->set(compact('id', 'customertypes', 'zones'));
     }
-    public function import(){
-    	if ($this->request->is('post')) {
-    		if($_FILES["file"]["name"] != ''){
-    			$allowed_extension = array('xls', 'csv', 'xlsx');
-    			$file_array = explode(".", $_FILES["file"]["name"]);
-    			$file_extension = end($file_array);
-                
-    			if(in_array($file_extension, $allowed_extension)){
-    				$file_name = time() . '.' . $file_extension;
-    				move_uploaded_file($_FILES['file']['tmp_name'], $file_name);
-    				$file_type = \PhpOffice\PhpSpreadsheet\IOFactory::identify($file_name);
-    				$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($file_type);
+    public function import()
+    {
+        if ($this->request->is('post')) {
+            if ($_FILES["file"]["name"] != '') {
+                $allowed_extension = array('xls', 'csv', 'xlsx');
+                $file_array = explode(".", $_FILES["file"]["name"]);
+                $file_extension = end($file_array);
 
-    				$spreadsheet = $reader->load($file_name);
+                if (in_array($file_extension, $allowed_extension)) {
+                    $file_name = time() . '.' . $file_extension;
+                    move_uploaded_file($_FILES['file']['tmp_name'], $file_name);
+                    $file_type = \PhpOffice\PhpSpreadsheet\IOFactory::identify($file_name);
+                    $reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader($file_type);
 
-    				unlink($file_name);
+                    $spreadsheet = $reader->load($file_name);
 
-    				$data = $spreadsheet->getActiveSheet()->toArray();
-    				
-                    
+                    unlink($file_name);
+
+                    $data = $spreadsheet->getActiveSheet()->toArray();
+
+
                     //supprimer les deux premiérs lignes qui contient des informations du documents et des colonnes
                     unset($data[0]);
-                    $misajours=0;
-                    foreach($data as $key=>$row){
-                        $customer=$this->Customers->newEntity();
-                        $customerdata['name']=$row[0];
-                        $customerdata['adresse']=$row[1];
-                        $customerdata['zone_id']=$row[2];
-                        $customerdata['customertype_id']=2;
-                        $customerdata['company_id']=1;
-                        $customer=$this->Customers->patchEntity($customer,$customerdata);
-                        $code=$this->Customers->Companies->Companycodes->find('all')->where(['controleur'=>'Customers','company_id'=>1])->last();
-                        $customer->code=$code->prefixe.($code->compteur+1);
-                        
+                    $misajours = 0;
+                    foreach ($data as $key => $row) {
+                        $customer = $this->Customers->newEntity();
+                        $customerdata['name'] = $row[0];
+                        $customerdata['adresse'] = $row[1];
+                        $customerdata['zone_id'] = $row[2];
+                        $customerdata['customertype_id'] = 2;
+                        $customerdata['company_id'] = 1;
+                        $customer = $this->Customers->patchEntity($customer, $customerdata);
+                        $code = $this->Customers->Companies->Companycodes->find('all')->where(['controleur' => 'Customers', 'company_id' => 1])->last();
+                        $customer->code = $code->prefixe . ($code->compteur + 1);
+
                         if ($this->Customers->save($customer)) {
-                            $code->compteur=$code->compteur+1;
-                            if($this->Customers->Companies->Companycodes->save($code)){
+                            $code->compteur = $code->compteur + 1;
+                            if ($this->Customers->Companies->Companycodes->save($code)) {
                                 $misajours++;
                             }
                         }
                     }
-                    $this->Flash->success(__($misajours.' client ont bien enregistrés.'));
+                    $this->Flash->success(__($misajours . ' client ont bien enregistrés.'));
                     return $this->redirect(['action' => 'index']);
-    			}
-    		}
-    	}
+                }
+            }
+        }
     }
-    
+
     /**
      * View method
      *
@@ -93,27 +95,27 @@ class CustomersController extends AppController
         $customer = $this->Customers->get($id, [
             'contain' => ['Zones', 'Customertypes', 'Companies'],
         ]);
-        
+
         $photo = $this->Customers->Photos->find('all')
             ->where(['controleur' => 'customers', 'objectid' => $customer->id])
             ->order(['created' => 'DESC'])
             ->first();
-            
+
         $customer->photo = $photo;
-        
+
         $this->loadModel('Orders');
-        
+
         // Total orders count
         $orderCount = $this->Orders->find()->where(['customer_id' => $customer->id])->count();
         $customer->order_count = $orderCount;
-        
+
         // Last order total
         $lastOrderTotal = 0;
         $lastOrder = $this->Orders->find()
             ->where(['customer_id' => $customer->id])
             ->order(['created' => 'DESC'])
             ->first();
-            
+
         if ($lastOrder) {
             $orderPacks = $this->Orders->Orderpacks->find()->where(['order_id' => $lastOrder->id])->all();
             foreach ($orderPacks as $pack) {
@@ -121,7 +123,7 @@ class CustomersController extends AppController
             }
         }
         $customer->last_order_total = $lastOrderTotal;
-        
+
         // Loyalty points sum
         $querySum = $this->Orders->find()
             ->leftJoinWith('Orderpacks')
@@ -138,9 +140,9 @@ class CustomersController extends AppController
                 )
             ])
             ->first();
-            
-        $customer->loyaltypoints_sum = $querySum ? (float)$querySum->loyaltypoints_sum : 0;
-        
+
+        $customer->loyaltypoints_sum = $querySum ? (float) $querySum->loyaltypoints_sum : 0;
+
         // Recent 5 orders
         $recentOrders = $this->Orders->find()
             ->contain(['Users', 'Orderpacks.Loyaltyorderpacks'])
@@ -152,43 +154,53 @@ class CustomersController extends AppController
         foreach ($recentOrders as $order) {
             $totalPoints = 0;
             $unclaimedPoints = 0;
+            $reclaimedPoints = 0;
+            $isGift = ($order->ordertype_id == 4);
             if (!empty($order->orderpacks)) {
                 foreach ($order->orderpacks as $pack) {
-                    if ($pack->loyaltypointgift_id !== null) {
-                        continue;
-                    }
-                    
                     $points = $pack->quantity * $pack->loyaltypoints;
                     $hasPoints = false;
                     $isReturn = ($order->ordertype_id == 2);
-                    
-                    if (!$isReturn && $order->statut == 6 && $pack->statut == 6) {
+
+                    if ($isGift) {
+                        $hasPoints = true;
+                    } else if (!$isReturn && $order->statut == 6 && $pack->statut == 6) {
                         $hasPoints = true;
                     } else if ($isReturn && $order->statut == 6) {
                         $hasPoints = true;
                     }
-                    
+
                     if ($hasPoints) {
-                        $val = $isReturn ? -$points : $points;
-                        $totalPoints += $val;
-                        
-                        $isClaimed = false;
-                        if (!empty($pack->loyaltyorderpacks)) {
-                            foreach ($pack->loyaltyorderpacks as $lop) {
-                                if ($lop->loyaltypoint_id !== null) {
-                                    $isClaimed = true;
-                                    break;
+                        if ($isGift) {
+                            $reclaimedPoints += $points;
+                        } else {
+                            $val = $isReturn ? -$points : $points;
+                            $totalPoints += $val;
+
+                            $isClaimed = false;
+                            if ($pack->loyaltypointgift_id !== null) {
+                                $isClaimed = true;
+                            } else if (!empty($pack->loyaltyorderpacks)) {
+                                foreach ($pack->loyaltyorderpacks as $lop) {
+                                    if ($lop->loyaltypoint_id !== null) {
+                                        $isClaimed = true;
+                                        break;
+                                    }
                                 }
                             }
-                        }
-                        if (!$isClaimed) {
-                            $unclaimedPoints += $val;
+
+                            if ($isClaimed) {
+                                $reclaimedPoints += $val;
+                            } else {
+                                $unclaimedPoints += $val;
+                            }
                         }
                     }
                 }
             }
             $order->total_points = $totalPoints;
             $order->unclaimed_points = $unclaimedPoints;
+            $order->reclaimed_points = $reclaimedPoints;
         }
 
         $this->set(compact('customer', 'recentOrders'));
@@ -204,52 +216,57 @@ class CustomersController extends AppController
         $customer = $this->Customers->newEntity();
         if ($this->request->is('post')) {
             $customer = $this->Customers->patchEntity($customer, $this->request->getData());
-            $customer->statut=1;
-            $code=$this->Customers->Companies->Companycodes->find('all')->where(['controleur'=>'Customers','company_id'=>$this->Auth->user('company_id')])->last();
-            $customer->code=$code->prefixe.($code->compteur+1);
-            $customer->company_id=$this->Auth->user('company_id');
-            
+            $customer->statut = 1;
+            $code = $this->Customers->Companies->Companycodes->find('all')->where(['controleur' => 'Customers', 'company_id' => $this->Auth->user('company_id')])->last();
+            $customer->code = $code->prefixe . ($code->compteur + 1);
+            $customer->company_id = $this->Auth->user('company_id');
+
             if ($this->Customers->save($customer)) {
-                $code->compteur=$code->compteur+1;
+                $code->compteur = $code->compteur + 1;
                 $this->Customers->Companies->Companycodes->save($code);
                 $this->Flash->success(__('Le client a été enregistré.'));
-                
-                if($this->Auth->user('role_id')==6 || $this->Auth->user('role_id')==5 || $this->Auth->user('role_id')==3){
+
+                if ($this->Auth->user('role_id') == 6 || $this->Auth->user('role_id') == 5 || $this->Auth->user('role_id') == 3) {
                     return $this->redirect('/');
-                }else{
+                } else {
                     return $this->redirect(['action' => 'index']);
                 }
             }
             $this->Flash->error(__('Le client n\'a pas pu être enregistré. Veuillez réessayer.'));
         }
-        $zonesd = $this->Customers->Zones->find('all')->where(['Zones.company_id'=>$this->Auth->user('company_id'),'Zones.zone_id IS '=>NULL])->contain(['Zoneusers.Users'=>function($q){return $q->where(['OR'=>[['Users.role_id'=>5],['Users.role_id'=>3]]]);},'Subzones']);
-        $q=[];
-        
-        if($this->Auth->user('role_id')==6 || $this->Auth->user('role_id')==5 || $this->Auth->user('role_id')==3){
-            if($this->Auth->user("zone_id")){
-            foreach ($this->Auth->user("zone_id") as $key => $zone) {
-                $q[$key]=['id'=>$zone];
+        $zonesd = $this->Customers->Zones->find('all')->where(['Zones.company_id' => $this->Auth->user('company_id'), 'Zones.zone_id IS ' => NULL])->contain([
+            'Zoneusers.Users' => function ($q) {
+                return $q->where(['OR' => [['Users.role_id' => 5], ['Users.role_id' => 3]]]);
+            },
+            'Subzones'
+        ]);
+        $q = [];
+
+        if ($this->Auth->user('role_id') == 6 || $this->Auth->user('role_id') == 5 || $this->Auth->user('role_id') == 3) {
+            if ($this->Auth->user("zone_id")) {
+                foreach ($this->Auth->user("zone_id") as $key => $zone) {
+                    $q[$key] = ['id' => $zone];
+                }
+                $zonesd->where(['OR' => $q]);
+            } else {
+                $zonesd->where(['id' => 0]);
             }
-            $zonesd->where(['OR'=>$q]);
-            }else{
-              $zonesd->where(['id'=>0]);  
-            }
-        }else{
-            $zonesd->where(['warehouse_id'=>$this->Auth->user('defaultwh')]);
+        } else {
+            $zonesd->where(['warehouse_id' => $this->Auth->user('defaultwh')]);
         }
-        $zones=[];
+        $zones = [];
         foreach ($zonesd as $key => $zone) {
-            if($zone->zoneusers){
+            if ($zone->zoneusers) {
                 foreach ($zone->subzones as $subzone) {
-                    $zones[$subzone->id]=$subzone->title.' ('.$zone->zoneusers[0]->user->firstname.' '.$zone->zoneusers[0]->user->lastname.')';
+                    $zones[$subzone->id] = $subzone->title . ' (' . $zone->zoneusers[0]->user->firstname . ' ' . $zone->zoneusers[0]->user->lastname . ')';
                 }
-            }else{
+            } else {
                 foreach ($zone->subzones as $subzone) {
-                    $zones[$subzone->id]=$subzone->title;
+                    $zones[$subzone->id] = $subzone->title;
                 }
             }
         }
-        $customertypes = $this->Customers->Customertypes->find('list')->where(['company_id'=>$this->Auth->user('company_id')]);
+        $customertypes = $this->Customers->Customertypes->find('list')->where(['company_id' => $this->Auth->user('company_id')]);
         $this->set(compact('customer', 'zones', 'customertypes'));
     }
 
@@ -260,31 +277,31 @@ class CustomersController extends AppController
      * @return \Cake\Http\Response|null Redirects on successful edit, renders view otherwise.
      * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
      */
-    public function edit($id = null,$amodifier = null)
+    public function edit($id = null, $amodifier = null)
     {
         /*  $amodifier 
             1: modifier le client
             2: modifier la photo
-        */ 
+        */
         $customer = $this->Customers->get($id, [
             'contain' => ["Zones"],
         ]);
-        if($customer->zone->warehouse_id==$this->Auth->user('defaultwh')){
+        if ($customer->zone->warehouse_id == $this->Auth->user('defaultwh')) {
             if ($this->request->is(['patch', 'post', 'put'])) {
                 $customer = $this->Customers->patchEntity($customer, $this->request->getData());
-                $statut=$this->request->getData('statut');
-                $customer->company_id=$this->Auth->user('company_id');
-                 if($this->request->getData('statut') || $amodifier==1){
+                $statut = $this->request->getData('statut');
+                $customer->company_id = $this->Auth->user('company_id');
+                if ($this->request->getData('statut') || $amodifier == 1) {
                     if ($statut) {
-                        $customer->statut=1;
+                        $customer->statut = 1;
                     } else {
-                        $customer->statut=0;
+                        $customer->statut = 0;
                     }
                 }
-                if($amodifier==2){
-                    $customer->photo->title=$customer->photo->photo['name'];
-                    $customer->photo->controleur='customers';
-                    $customer->photo->company_id=$this->Auth->user('company_id');
+                if ($amodifier == 2) {
+                    $customer->photo->title = $customer->photo->photo['name'];
+                    $customer->photo->controleur = 'customers';
+                    $customer->photo->company_id = $this->Auth->user('company_id');
                 }
                 if ($this->Customers->save($customer)) {
                     $this->Flash->success(__('Le client a été enregistré.'));
@@ -293,40 +310,45 @@ class CustomersController extends AppController
                 }
                 $this->Flash->error(__('Le client n\'a pas pu être enregistré. Veuillez réessayer.'));
             }
-            if($amodifier==1){
-                $zonesd = $this->Customers->Zones->find('all')->where(['Zones.company_id'=>$this->Auth->user('company_id'),'Zones.zone_id IS '=>NULL])->contain(['Zoneusers.Users'=>function($q){return $q->where(['OR'=>[['Users.role_id'=>5],['Users.role_id'=>3]]]);},'Subzones']);
-                $q=[];
-                
-                if($this->Auth->user('role_id')==6 || $this->Auth->user('role_id')==5 || $this->Auth->user('role_id')==3){
-                    if($this->Auth->user("zone_id")){
-                    foreach ($this->Auth->user("zone_id") as $key => $zone) {
-                        $q[$key]=['id'=>$zone];
+            if ($amodifier == 1) {
+                $zonesd = $this->Customers->Zones->find('all')->where(['Zones.company_id' => $this->Auth->user('company_id'), 'Zones.zone_id IS ' => NULL])->contain([
+                    'Zoneusers.Users' => function ($q) {
+                        return $q->where(['OR' => [['Users.role_id' => 5], ['Users.role_id' => 3]]]);
+                    },
+                    'Subzones'
+                ]);
+                $q = [];
+
+                if ($this->Auth->user('role_id') == 6 || $this->Auth->user('role_id') == 5 || $this->Auth->user('role_id') == 3) {
+                    if ($this->Auth->user("zone_id")) {
+                        foreach ($this->Auth->user("zone_id") as $key => $zone) {
+                            $q[$key] = ['id' => $zone];
+                        }
+                        $zonesd->where(['OR' => $q]);
+                    } else {
+                        $zonesd->where(['id' => 0]);
                     }
-                    $zonesd->where(['OR'=>$q]);
-                    }else{
-                      $zonesd->where(['id'=>0]);  
-                    }
-                }else{
-                    $zonesd->where(['warehouse_id'=>$this->Auth->user('defaultwh')]);
+                } else {
+                    $zonesd->where(['warehouse_id' => $this->Auth->user('defaultwh')]);
                 }
-                $zones=[];
+                $zones = [];
                 foreach ($zonesd as $key => $zone) {
-                    if($zone->zoneusers){
+                    if ($zone->zoneusers) {
                         foreach ($zone->subzones as $subzone) {
-                            $zones[$subzone->id]=$subzone->title.' ('.$zone->zoneusers[0]->user->firstname.' '.$zone->zoneusers[0]->user->lastname.')';
+                            $zones[$subzone->id] = $subzone->title . ' (' . $zone->zoneusers[0]->user->firstname . ' ' . $zone->zoneusers[0]->user->lastname . ')';
                         }
-                    }else{
+                    } else {
                         foreach ($zone->subzones as $subzone) {
-                            $zones[$subzone->id]=$subzone->title;
+                            $zones[$subzone->id] = $subzone->title;
                         }
                     }
                 }
-                $customertypes = $this->Customers->Customertypes->find('list')->where(['company_id'=>$this->Auth->user('company_id')]);
-                $this->set(compact('customer', 'zones', 'customertypes','amodifier'));
-            }else{
-                $this->set(compact('customer','amodifier'));
+                $customertypes = $this->Customers->Customertypes->find('list')->where(['company_id' => $this->Auth->user('company_id')]);
+                $this->set(compact('customer', 'zones', 'customertypes', 'amodifier'));
+            } else {
+                $this->set(compact('customer', 'amodifier'));
             }
-        }else{
+        } else {
             $this->Flash->error(__('Vous n\'avez pas les droits nécessaire pour modifier ce client.'));
             return $this->redirect(['action' => 'index']);
         }
@@ -339,7 +361,7 @@ class CustomersController extends AppController
      * @param string|null $id Customer id.
      * @return \Cake\Http\Response|null Redirects to index.
      * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     
+
     public function delete($id = null)
     {
         $this->request->allowMethod(['post', 'delete']);
@@ -354,8 +376,8 @@ class CustomersController extends AppController
     }
     */
 
-    public function search($statut=null)
-    {  
+    public function search($statut = null)
+    {
 
         $page = $this->request->getData('pagination.page');
         $pages = $this->request->getData('pagination.pages');
@@ -363,46 +385,46 @@ class CustomersController extends AppController
         $total = $this->request->getData('pagination.total');
         $field = $this->request->getData('sort.field'); // Column name
         $sort = $this->request->getData('sort.sort'); // Column name
-        
+
         $columnName = $this->request->getData('sort.field'); // Column name
         $columnSort = $this->request->getData('sort.sort'); // Column name
         $searchValue = strtolower($this->request->getData('query.generalSearch')); // Search value
         $searchSecteurs = $this->request->getData('query.Secteur'); // Search value
         $searchType = strtolower($this->request->getData('query.Type')); // Search value
-         
-         switch($columnName) {
+
+        switch ($columnName) {
             case 'code':
-                $columnName="Customers.code";
+                $columnName = "Customers.code";
                 break;
             case 'name':
-                $columnName="Customers.name";
+                $columnName = "Customers.name";
                 break;
             case 'phone':
-                $columnName="Customers.phone";
+                $columnName = "Customers.phone";
                 break;
             case 'adresse':
-                $columnName="Customers.name";
+                $columnName = "Customers.name";
                 break;
             case 'zone':
-                $columnName="Zones.title";
+                $columnName = "Zones.title";
                 break;
             case 'type':
-                $columnName="Customertypes.title";
+                $columnName = "Customertypes.title";
                 break;
             case 'status':
-                $columnName="Customers.statut";
+                $columnName = "Customers.statut";
                 break;
-            
+
             case 'loyaltypoints':
-                $columnName="loyaltypoints_sum";
+                $columnName = "loyaltypoints_sum";
                 break;
             default:
-                $columnName="Customers.created";
-                $columnSort="desc";
+                $columnName = "Customers.created";
+                $columnSort = "desc";
                 break;
         }
         ## Total number of records with filtering
-        $sel=$this->Customers->find('all')->contain(['Zones.Cities','Zones.Parentzones','Customertypes'])->where(['Customers.company_id'=>$this->Auth->user('company_id')]);
+        $sel = $this->Customers->find('all')->contain(['Zones.Cities', 'Zones.Parentzones', 'Customertypes'])->where(['Customers.company_id' => $this->Auth->user('company_id')]);
 
         $empQuery = $this->Customers->find();
         $empQuery
@@ -434,96 +456,105 @@ class CustomersController extends AppController
         } else {
             $empQuery->order([$columnName => $columnSort]);
         }
-        
-        $empQuery->where(['Zones.warehouse_id'=>$this->Auth->user('defaultwh')]);
-        $sel->where(['Zones.warehouse_id'=>$this->Auth->user('defaultwh')]);
 
-        if($statut){
-            $empQuery->where(['Customers.statut'=>$statut]);
-            $sel->where(['Customers.statut'=>$statut]);
+        $empQuery->where(['Zones.warehouse_id' => $this->Auth->user('defaultwh')]);
+        $sel->where(['Zones.warehouse_id' => $this->Auth->user('defaultwh')]);
+
+        if ($statut) {
+            $empQuery->where(['Customers.statut' => $statut]);
+            $sel->where(['Customers.statut' => $statut]);
         }
 
-        if($searchValue != ''){
-            $sel->where(["OR"=>[
-                ['Customers.name LIKE' => '%'.$searchValue.'%'],
-                ['lower(Customers.name) LIKE'=>'%'.$searchValue.'%'],
-                ['lower(Customers.code) LIKE'=>'%'.$searchValue.'%'],
-                ['Customers.code LIKE' => '%'.$searchValue.'%'],
-                ['lower(Customers.phone) LIKE'=>'%'.$searchValue.'%'],
-                ['Customers.phone LIKE' => '%'.$searchValue.'%']]]);
-            $empQuery->where(["OR"=>[
-                ['Customers.name LIKE' => '%'.$searchValue.'%'],
-                ['lower(Customers.name) LIKE'=>'%'.$searchValue.'%'],
-                ['lower(Customers.code) LIKE'=>'%'.$searchValue.'%'],
-                ['Customers.code LIKE' => '%'.$searchValue.'%'],
-                ['lower(Customers.phone) LIKE'=>'%'.$searchValue.'%'],
-                ['Customers.phone LIKE' => '%'.$searchValue.'%']]]);
+        if ($searchValue != '') {
+            $sel->where([
+                "OR" => [
+                    ['Customers.name LIKE' => '%' . $searchValue . '%'],
+                    ['lower(Customers.name) LIKE' => '%' . $searchValue . '%'],
+                    ['lower(Customers.code) LIKE' => '%' . $searchValue . '%'],
+                    ['Customers.code LIKE' => '%' . $searchValue . '%'],
+                    ['lower(Customers.phone) LIKE' => '%' . $searchValue . '%'],
+                    ['Customers.phone LIKE' => '%' . $searchValue . '%']
+                ]
+            ]);
+            $empQuery->where([
+                "OR" => [
+                    ['Customers.name LIKE' => '%' . $searchValue . '%'],
+                    ['lower(Customers.name) LIKE' => '%' . $searchValue . '%'],
+                    ['lower(Customers.code) LIKE' => '%' . $searchValue . '%'],
+                    ['Customers.code LIKE' => '%' . $searchValue . '%'],
+                    ['lower(Customers.phone) LIKE' => '%' . $searchValue . '%'],
+                    ['Customers.phone LIKE' => '%' . $searchValue . '%']
+                ]
+            ]);
         }
 
         if ($searchType) {
-            $empQuery->where(['Customers.customertype_id'=>$searchType]);
-            $sel->where(['Customers.customertype_id'=>$searchType]);
+            $empQuery->where(['Customers.customertype_id' => $searchType]);
+            $sel->where(['Customers.customertype_id' => $searchType]);
         }
 
-        $qsecteurs=[];
+        $qsecteurs = [];
         if ($searchSecteurs) {
             foreach ($searchSecteurs as $key => $secteur) {
-                $qsecteurs[$key]=['Customers.zone_id'=>$secteur];
+                $qsecteurs[$key] = ['Customers.zone_id' => $secteur];
             }
-            $empQuery->where(['OR'=>$qsecteurs]);
-            $sel->where(['OR'=>$qsecteurs]);
+            $empQuery->where(['OR' => $qsecteurs]);
+            $sel->where(['OR' => $qsecteurs]);
         }
         $empQuery->limit($perpage);
         $empQuery->page($page);
         $sel->select(['count' => $sel->func()->count('*')]);
         $total = $sel->last()->count;
 
-        $data =[];
+        $data = [];
         foreach ($empQuery as $key => $customer) {
-           
-            $photo=$this->Customers->Photos->find('all')->where(['controleur'=>'customers','objectid'=>$customer->id])->order(['created'=>'ASC'])->last();
-            $img=Router::Url('/').'webroot/img/unvailable.jpg';
+
+            $photo = $this->Customers->Photos->find('all')->where(['controleur' => 'customers', 'objectid' => $customer->id])->order(['created' => 'ASC'])->last();
+            $img = Router::Url('/') . 'webroot/img/unvailable.jpg';
             if ($photo) {
-                $img=Router::Url('/').$photo->dir.'/'.$photo->title;
+                $img = Router::Url('/') . $photo->dir . '/' . $photo->title;
             }
-            $parrain='Aucun';
-            if($customer->referred){
-                $userreferred=$this->Customers->Companies->Users->find('all')->where(["OR"=>[
-                ['Users.referral LIKE' => '%'.$customer->referred.'%'],
-                ['lower(Users.referral) LIKE'=>'%'.$customer->referred.'%']]])->last();
-                $parrain=$userreferred->firstname.' '.$userreferred->lastname;
+            $parrain = 'Aucun';
+            if ($customer->referred) {
+                $userreferred = $this->Customers->Companies->Users->find('all')->where([
+                    "OR" => [
+                        ['Users.referral LIKE' => '%' . $customer->referred . '%'],
+                        ['lower(Users.referral) LIKE' => '%' . $customer->referred . '%']
+                    ]
+                ])->last();
+                $parrain = $userreferred->firstname . ' ' . $userreferred->lastname;
             }
-            $customerzone=$customer->zone->title;
-            
-            if($customer->zone->parentzone){
-                $customerzone=$customer->zone->title.'-'.$customer->zone->parentzone->title;
+            $customerzone = $customer->zone->title;
+
+            if ($customer->zone->parentzone) {
+                $customerzone = $customer->zone->title . '-' . $customer->zone->parentzone->title;
             }
             $data[] = [
-                "id"=> $customer->id,
-                "img"=> $img,
-                "code"=> $customer->code,
-                "name"=>$customer->name,
-                "phone"=>$customer->phone,
-                "adresse"=>$customer->adresse,
-                "zone"=>$customerzone,
-                "typeid"=>$customer->customertype->id,
-                "type"=>$customer->customertype->title,
-                "status"=> $customer->statut, 
-                "loyaltypoints" => $customer->loyaltypoints_sum."",
-                "actions"=> null
+                "id" => $customer->id,
+                "img" => $img,
+                "code" => $customer->code,
+                "name" => $customer->name,
+                "phone" => $customer->phone,
+                "adresse" => $customer->adresse,
+                "zone" => $customerzone,
+                "typeid" => $customer->customertype->id,
+                "type" => $customer->customertype->title,
+                "status" => $customer->statut,
+                "loyaltypoints" => $customer->loyaltypoints_sum . "",
+                "actions" => null
             ];
         }
         $response = [
-            "meta"=>[
+            "meta" => [
                 'page' => $page,
                 'pages' => $pages,
                 'perpage' => $perpage,
                 'total' => $total,
-                'sort'=> $sort
+                'sort' => $sort
             ],
             'data' => $data,
         ];
-        $this->autoRender = false; 
+        $this->autoRender = false;
         echo json_encode($response);
         exit;
     }

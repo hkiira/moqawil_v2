@@ -28,4 +28,6 @@ composer.phar
 
 # Uploaded files
 /webroot/files/*
+/webroot/img/*
+/webroot/images/*
 !/webroot/files/empty

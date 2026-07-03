@@ -134,6 +134,7 @@ $lng = !empty($customer->longitude) ? (float)$customer->longitude : null;
                                         <th class="p-0" style="min-width: 100px"></th>
                                         <th class="p-0" style="min-width: 100px"></th>
                                         <th class="p-0" style="min-width: 100px"></th>
+                                        <th class="p-0" style="min-width: 100px"></th>
                                         <th class="p-0" style="min-width: 40px"></th>
                                     </tr>
                                 </thead>
@@ -142,11 +143,19 @@ $lng = !empty($customer->longitude) ? (float)$customer->longitude : null;
                                         <?php foreach ($recentOrders as $order): ?>
                                             <tr>
                                                 <td class="pl-0 py-4">
-                                                    <div class="symbol symbol-50 symbol-light-primary mr-2">
-                                                        <span class="symbol-label">
-                                                            <i class="flaticon2-shopping-cart-1 text-primary"></i>
-                                                        </span>
-                                                    </div>
+                                                    <?php if ($order->ordertype_id == 4): ?>
+                                                        <div class="symbol symbol-50 symbol-light-warning mr-2">
+                                                            <span class="symbol-label">
+                                                                <i class="fas fa-gift text-warning"></i>
+                                                            </span>
+                                                        </div>
+                                                    <?php else: ?>
+                                                        <div class="symbol symbol-50 symbol-light-primary mr-2">
+                                                            <span class="symbol-label">
+                                                                <i class="flaticon2-shopping-cart-1 text-primary"></i>
+                                                            </span>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td class="pl-0">
                                                     <a href="<?= $this->Url->build(['controller' => 'Orders', 'action' => 'view', $order->id]) ?>" class="text-dark-75 font-weight-bolder text-hover-primary mb-1 font-size-lg">
@@ -167,6 +176,12 @@ $lng = !empty($customer->longitude) ? (float)$customer->longitude : null;
                                                         <?= number_format($order->total_points, 0) ?>
                                                     </span>
                                                     <span class="text-muted font-weight-bold">Points cumulés</span>
+                                                </td>
+                                                <td>
+                                                    <span class="text-dark-75 font-weight-bolder d-block font-size-lg">
+                                                        <?= number_format($order->reclaimed_points, 0) ?>
+                                                    </span>
+                                                    <span class="text-muted font-weight-bold">Réclamés</span>
                                                 </td>
                                                 <td>
                                                     <span class="text-dark-75 font-weight-bolder d-block font-size-lg">
@@ -192,7 +207,7 @@ $lng = !empty($customer->longitude) ? (float)$customer->longitude : null;
                                         <?php endforeach; ?>
                                     <?php else: ?>
                                         <tr>
-                                            <td colspan="5" class="text-center py-8 text-muted">
+                                            <td colspan="8" class="text-center py-8 text-muted">
                                                 Aucune commande trouvée.
                                             </td>
                                         </tr>
