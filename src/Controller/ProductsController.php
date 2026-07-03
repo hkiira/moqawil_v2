@@ -135,7 +135,8 @@ class ProductsController extends AppController
             'valueField' => 'title',
             'conditions' => [
                 'Categories.company_id' => $this->Auth->user('company_id'),
-                'Categories.type' => 'product'
+                'Categories.type' => 'product',
+                'Categories.category_id IS NOT' => NULL
             ]
         ])->toArray();
 
@@ -190,7 +191,8 @@ class ProductsController extends AppController
             'valueField' => 'title',
             'conditions' => [
                 'Categories.company_id' => $this->Auth->user('company_id'),
-                'Categories.type' => 'product'
+                'Categories.type' => 'product',
+                'Categories.category_id IS NOT' => NULL
             ]
         ])->toArray();
 
