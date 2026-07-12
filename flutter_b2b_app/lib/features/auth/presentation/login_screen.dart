@@ -50,7 +50,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E2C),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // Glassmorphism Backgrounds
@@ -63,7 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 width: 250,
                 height: 250,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4F46E5).withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -78,7 +78,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 width: 300,
                 height: 300,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE11D48).withOpacity(0.4),
+                  color: Theme.of(context).colorScheme.secondary.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -92,15 +92,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.business_center, size: 80, color: Colors.white),
+                    Icon(Icons.business_center, size: 80, color: Theme.of(context).colorScheme.primary),
                     const SizedBox(height: 16),
-                    const Text('B2B Portal', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+                    Text('B2B Portal', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
                     const SizedBox(height: 8),
-                    const Text('Sign in to your account', style: TextStyle(fontSize: 16, color: Colors.white70)),
+                    Text('Sign in to your account', style: TextStyle(fontSize: 16, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
                     const SizedBox(height: 48),
 
                     // Phone Field
                     _buildTextField(
+                      context: context,
                       controller: _phoneController,
                       icon: Icons.phone,
                       hintText: 'Phone Number',
@@ -110,12 +111,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                     // Password Field
                     _buildTextField(
+                      context: context,
                       controller: _passwordController,
                       icon: Icons.lock,
                       hintText: 'Password',
                       obscureText: _obscurePassword,
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.white54),
+                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                     ),
@@ -128,9 +130,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: ElevatedButton(
                         onPressed: isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4F46E5),
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          elevation: 8,
+                          elevation: 2,
                         ),
                         child: isLoading
                             ? const CircularProgressIndicator(color: Colors.white)
@@ -143,10 +145,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text("Don't have an account?", style: TextStyle(color: Colors.white70)),
+                        Text("Don't have an account?", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
                         TextButton(
                           onPressed: () => context.push('/signup'),
-                          child: const Text('Create Account', style: TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold)),
+                          child: Text('Create Account', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     )
@@ -161,6 +163,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildTextField({
+    required BuildContext context,
     required TextEditingController controller,
     required IconData icon,
     required String hintText,
@@ -168,30 +171,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     TextInputType? keyboardType,
     Widget? suffixIcon,
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-          child: TextField(
-            controller: controller,
-            obscureText: obscureText,
-            keyboardType: keyboardType,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              prefixIcon: Icon(icon, color: Colors.white54),
-              suffixIcon: suffixIcon,
-              hintText: hintText,
-              hintStyle: const TextStyle(color: Colors.white54),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 20),
-            ),
-          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+          suffixIcon: suffixIcon,
+          hintText: hintText,
+          hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 20),
         ),
       ),
     );

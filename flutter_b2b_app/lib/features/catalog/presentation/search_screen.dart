@@ -46,9 +46,9 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E2C),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E1E2C),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         elevation: 0,
         titleSpacing: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -56,22 +56,22 @@ class _SearchScreenState extends State<SearchScreen> {
           margin: const EdgeInsets.only(right: 16),
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(color: Colors.grey.withOpacity(0.2)),
           ),
           child: TextField(
             controller: _searchController,
             autofocus: true,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.black87),
             textInputAction: TextInputAction.search,
             onSubmitted: _submitSearch,
             decoration: InputDecoration(
               hintText: 'Search products...',
-              hintStyle: const TextStyle(color: Colors.white54),
-              prefixIcon: const Icon(Icons.search, color: Colors.white54),
+              hintStyle: const TextStyle(color: Colors.black54),
+              prefixIcon: const Icon(Icons.search, color: Colors.black54),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54, size: 18),
+                icon: const Icon(Icons.close, color: Colors.black54, size: 18),
                 onPressed: () {
                   _searchController.clear();
                   setState(() {});
@@ -86,11 +86,11 @@ class _SearchScreenState extends State<SearchScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Recent Searches', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+          Text('Recent Searches', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           ..._recentSearches.map((search) => ListTile(
-            leading: const Icon(Icons.history, color: Colors.white54),
-            title: Text(search, style: const TextStyle(color: Colors.white70)),
+            leading: Icon(Icons.history, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+            title: Text(search, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8))),
             onTap: () => _submitSearch(search),
           )),
         ],

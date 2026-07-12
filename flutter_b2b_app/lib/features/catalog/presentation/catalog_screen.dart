@@ -30,12 +30,12 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E2C),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(title, style: const TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Theme.of(context).colorScheme.onSurface),
+        title: Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
       ),
       body: Stack(
         children: [
@@ -43,34 +43,54 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
             top: -100, right: -50,
             child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.3), shape: BoxShape.circle)),
+              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.08), shape: BoxShape.circle)),
             ),
           ),
           
-          productsAsync.when(
-            data: (products) {
-              if (products.isEmpty) {
-                return const Center(
-                  child: Text('No products found.', style: TextStyle(color: Colors.white70, fontSize: 18)),
+          RefreshIndicator(
+            onRefresh: () async => ref.refresh(catalogProvider(filter)),
+            child: productsAsync.when(
+              data: (products) {
+                if (products.isEmpty) {
+                  return ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.7,
+                        child: Center(
+                          child: Text('No products found.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 18)),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return GridView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.65,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: products.length,
+                  itemBuilder: (context, index) {
+                    final product = products[index];
+                    return _buildProductCard(context, product, ref);
+                  },
                 );
-              }
-              return GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.65,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  return _buildProductCard(context, product, ref);
-                },
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    child: Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -79,91 +99,93 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
 
   Widget _buildProductCard(BuildContext context, Map<String, dynamic> product, WidgetRef ref) {
     final int packId = product['id'] ?? 0;
-    final String imageUrl = product['image'] != null ? 'http://localhost/moqa' + product['image'] : '';
+    final String rawImage = product['image']?.toString() ?? '';
+    final String imageUrl = rawImage.startsWith('http') ? rawImage : (rawImage.isNotEmpty ? 'http://localhost/moqa' + rawImage : '');
 
     return GestureDetector(
       onTap: () => context.push('/product_details', extra: product),
       child: Stack(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.grey.withOpacity(0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        color: Colors.white.withOpacity(0.1),
-                        child: imageUrl.isNotEmpty
-                          ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image, color: Colors.white54))
-                          : const Icon(Icons.image, color: Colors.white54),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    color: Colors.grey.withOpacity(0.05),
+                    child: imageUrl.isNotEmpty
+                      ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => Icon(Icons.image, color: Theme.of(context).colorScheme.primary.withOpacity(0.3)))
+                      : Icon(Icons.image, color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        product['title'] ?? 'Product',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 14),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            product['title'] ?? 'Product',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            '${product['price'] ?? 0} MAD',
+                            style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${product['price'] ?? 0} MAD',
-                                style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 16),
+                          if (product['tranches'] != null && (product['tranches'] as List).isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.orangeAccent.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.4)),
                               ),
-                              if (product['tranches'] != null && (product['tranches'] as List).isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orangeAccent.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5)),
-                                  ),
-                                  child: const Text('Offers', style: TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                              child: const Text('Offers', style: TextStyle(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ),
+                          GestureDetector(
+                            onTap: () {
+                              ref.read(cartProvider.notifier).addItem(
+                                CartItem(
+                                  packId: packId,
+                                  title: product['title'],
+                                  image: imageUrl,
+                                  price: (product['price'] as num).toDouble(),
                                 ),
-                              GestureDetector(
-                                onTap: () {
-                                  ref.read(cartProvider.notifier).addItem(
-                                    CartItem(
-                                      packId: packId,
-                                      title: product['title'],
-                                      image: imageUrl,
-                                      price: (product['price'] as num).toDouble(),
-                                    ),
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Added to cart'), backgroundColor: Colors.green),
-                                  );
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(color: const Color(0xFF4F46E5), borderRadius: BorderRadius.circular(8)),
-                                  child: const Icon(Icons.add_shopping_cart, color: Colors.white, size: 20),
-                                ),
-                              ),
-                            ],
-                          )
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Added to cart'), backgroundColor: Colors.green),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(8)),
+                              child: const Icon(Icons.add_shopping_cart, color: Colors.white, size: 20),
+                            ),
+                          ),
                         ],
-                      ),
-                    ),
-                  ],
+                      )
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
           Positioned(
@@ -187,10 +209,20 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
                 },
                 child: Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
                   child: Icon(
                     isFav ? Icons.favorite : Icons.favorite_border,
-                    color: isFav ? Colors.redAccent : Colors.white,
+                    color: isFav ? Colors.redAccent : Colors.black54,
                     size: 20,
                   ),
                 ),

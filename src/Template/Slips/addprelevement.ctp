@@ -29,9 +29,7 @@ $this->assign('title', 'Ajouter un nouveau bon de conditionnement');
                     <thead>
                       <tr>
                         <th>Article</th>
-                        <th>Quantité (Carton/Sac)</th>
-                        <th>Quantité (Kg/unité)</th>
-                        <th>Prix</th>
+                        <th>Quantité (Unité)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -44,20 +42,11 @@ $this->assign('title', 'Ajouter un nouveau bon de conditionnement');
                               <?= $this->Form->control('slipproducts.'.$product['id'].'.unity_id', ['type' => 'hidden','class' => 'form-control','label' => false, 'value' => $product['id']]); ?>
                               <td style="width: 50%;">
                                 <?=$product['title']  ?><br>
-                                <?=$product['qtepercs'].' '.$product['piecekg'].' par '.$product['carsac'] ?>
-                              </td>
-                              <td>
-                                <?php if (isset($product[0]['price'])): ?>
-                                  <?= $this->Form->control('slipproducts.'.$product['id'].'.0.quantity', ['type' => 'number','min'=>'0' ,'class' => 'form-control','label' => false, 'value' => 0]); ?>
-                                <?php endif ?>
                               </td>
                               <td>
                                 <?php if (isset($product[1]['price'])): ?>
                                   <?= $this->Form->control('slipproducts.'.$product['id'].'.1.quantity', ['type' => 'number','min'=>'0','class' => 'form-control','label' => false, 'value' => 0]); ?>
                                 <?php endif ?>
-                              </td>
-                              <td>
-                                <?= $this->Form->control('slipproducts.'.$product['id'].'.price', ['type' => 'number','class' => 'form-control','label' => false, 'value' => $product[0]['price']]); ?>
                               </td>
                             </tr>
                           <?php endforeach ?>

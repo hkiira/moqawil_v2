@@ -24,17 +24,22 @@ $this->assign('subtitle', $slip->code);
 
       <thead>
 
+        <?php if($slip->sliptype_id==6):?>
         <tr>
-
-
           <th>Article</th>
-
+          <th>Quantité à valider</th>
+          <th>Stock disponible</th>
+          <th>Secteur</th>
+        </tr>
+        <?php else: ?>
+        <tr>
+          <th>Article</th>
           <th>Quantité</th>
-
           <th>Qté par sac/carton</th>
           <th>Qté (Mesure)</th>
           <th>Qté par unité/kg</th>
         </tr>
+        <?php endif; ?>
       </thead>
 
       <tbody>
@@ -46,57 +51,12 @@ $this->assign('subtitle', $slip->code);
               <?= $slipproduct->product->title ?><br>
               <?= $slipproduct->productunite->quantity*$slipproduct->product->measurement_quantity ?> <?= $slipproduct->product->measurement_unit->abbreviation ?> par <?= $slipproduct->productunite->unite->abrev ?>
             </td>
-            <?php if ($slipproduct->quantity%$slipproduct->productunite->quantity): ?>
-                                 <td>
-                                     <?php if (intVal($slipproduct->quantity/$slipproduct->productunite->quantity)>0): ?>
-                                         <?=  intVal($slipproduct->quantity/$slipproduct->productunite->quantity).' '.$slipproduct->productunite->unite->abrev ?> 
-                                         et <?=  $slipproduct->quantity % $slipproduct->productunite->quantity.' '.$slipproduct->productunite->unite->parentunite->abrev ?> </td>
-                                                    
-                                     <?php else: ?>
-                                         <?=  $slipproduct->quantity % $slipproduct->productunite->quantity.' '.$slipproduct->productunite->unite->parentunite->abrev ?> </td>
-                                                    
-                                     <?php endif ?>
-                           <?php else: ?>
-                               <td>
-                                   <?= intVal($slipproduct->quantity/$slipproduct->productunite->quantity).' '.$slipproduct->productunite->unite->abrev ?>
-                               </td>
-                            <?php endif ?>
-
             <td>
-
-            <?= $this->Form->control('slipproducts.'.$slipproduct->id.'.0.quantity', ['class' => 'form-control','label' => false, 'value' => intVal($slipproduct->quantity/$slipproduct->productunite->quantity)]); ?>
-
+               <?= $this->Form->control('slipproducts.'.$slipproduct->id.'.1.quantity', ['class' => 'form-control','label' => false, 'value' => $slipproduct->quantity]); ?>
             </td>
-
             <td>
-            <?php if ($slipproduct->product->saletype_id == 4): ?>
-              <?= $this->Form->control('slipproducts.'.$slipproduct->id.'.2.quantity', ['class' => 'form-control','label' => false, 'value' => $slipproduct->quantity]); ?>
-            <?php else: ?>
-              -
-            <?php endif; ?>
+               <?= $slipproduct->product->whproducts[0]->quantity.' '.$slipproduct->productunite->unite->parentunite->abrev ?>
             </td>
-
-            <td>
-
-            <?= $this->Form->control('slipproducts.'.$slipproduct->id.'.1.quantity', ['class' => 'form-control','label' => false, 'value' => intVal($slipproduct->quantity%$slipproduct->productunite->quantity)]); ?>
-
-            </td>
-
-            <?php if ($slipproduct->product->whproducts[0]->quantity%$slipproduct->productunite->quantity): ?>
-                                 <td>
-                                     <?php if (intVal($slipproduct->product->whproducts[0]->quantity/$slipproduct->productunite->quantity)>0): ?>
-                                         <?=  intVal($slipproduct->product->whproducts[0]->quantity/$slipproduct->productunite->quantity).' '.$slipproduct->productunite->unite->abrev ?> 
-                                         et <?=  $slipproduct->product->whproducts[0]->quantity % $slipproduct->productunite->quantity.' '.$slipproduct->productunite->unite->parentunite->abrev ?> </td>
-                                                    
-                                     <?php else: ?>
-                                         <?=  $slipproduct->product->whproducts[0]->quantity % $slipproduct->productunite->quantity.' '.$slipproduct->productunite->unite->parentunite->abrev ?> </td>
-                                                    
-                                     <?php endif ?>
-                             <?php else: ?>
-                                 <td>
-                                     <?= intVal($slipproduct->product->whproducts[0]->quantity/$slipproduct->productunite->quantity).' '.$slipproduct->productunite->unite->abrev ?>
-                                 </td>
-                             <?php endif ?>
             <td><?= $slipproduct->whnature->title ?></td>
           </tr>
 

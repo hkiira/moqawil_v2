@@ -28,13 +28,7 @@ $this->assign('subtitle', 'Créez un nouveau produit et définissez ses unités 
                         <label class="font-weight-bold">Catégorie <span class="text-danger">*</span></label>
                         <?= $this->Form->control('category_id', ['label' => false, 'options' => $categories, 'class' => 'form-control select2 selectpicker', 'data-live-search' => 'true', 'empty' => 'Sélectionner une Catégorie']); ?>
                     </div>
-                    <div class="form-group mb-4">
-                        <label class="font-weight-bold">Gestion du stock</label>
-                        <?php
-                        $stockOptions = [0 => 'Non', 1 => 'Oui'];
-                        echo $this->Form->control('gstock', ['label' => false, 'options' => $stockOptions, 'class' => 'form-control select2', 'default' => 0]);
-                        ?>
-                    </div>
+                    <?= $this->Form->control('gstock', ['type' => 'hidden', 'value' => 1]); ?>
                 </div>
                 <div class="col-xl-6">
                     <div class="form-group mb-4">
@@ -70,43 +64,8 @@ $this->assign('subtitle', 'Créez un nouveau produit et définissez ses unités 
         </div>
     </div>
 
-    <!-- Section: Unité de Mesure -->
-    <div class="card card-custom card-border mb-6">
-        <div class="card-header bg-light-primary border-0 min-h-50px px-5">
-            <div class="card-title">
-                <span class="card-icon">
-                    <i class="flaticon-settings-1 text-primary font-size-h5"></i>
-                </span>
-                <h5 class="card-label text-primary font-weight-bolder font-size-h6 mb-0">Unité de Mesure</h5>
-            </div>
-        </div>
-        <div class="card-body p-6">
-            <div class="row">
-                <div class="col-md-6 form-group">
-                    <label class="font-weight-bold">Valeur de la mesure <span class="text-danger">*</span></label>
-                    <?= $this->Form->control('measurement_quantity', [
-                        'label' => false,
-                        'type' => 'number',
-                        'class' => 'form-control form-control-solid',
-                        'step' => '0.01',
-                        'min' => '0.01',
-                        'value' => '1',
-                        'placeholder' => 'Ex: 1.5'
-                    ]); ?>
-                </div>
-                <div class="col-md-6 form-group">
-                    <label class="font-weight-bold">Unité physique <span class="text-danger">*</span></label>
-                    <?= $this->Form->control('measurement_unit_id', [
-                        'label' => false,
-                        'options' => $measurementUnits,
-                        'class' => 'form-control select2',
-                        'empty' => 'Sélectionner une unité physique'
-                    ]); ?>
-                </div>
-            </div>
-            <span class="form-text text-muted font-size-sm mt-2"><i class="flaticon-questions text-muted mr-1"></i> Exemple: 1.5 Litre (L), 2 Kilogramme (kg), 500 Gramme (g), etc.</span>
-        </div>
-    </div>
+    <?= $this->Form->control('measurement_quantity', ['type' => 'hidden', 'value' => 1]); ?>
+    <?= $this->Form->control('measurement_unit_id', ['type' => 'hidden', 'value' => 1]); ?>
 
 </div>
 

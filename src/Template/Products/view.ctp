@@ -5,6 +5,16 @@ $this->assign('title', 'Détails du produit : ' . h($product->title));
 // Add edit button to toolbar block
 $editButton = $this->Html->link('<i class="la la-edit icon-sm"></i> Modifier ce produit', ['action' => 'edit', $product->id], ['class' => 'btn btn-light-warning font-weight-bolder btn-sm mr-2', 'escape' => false]);
 $this->assign('edit', $editButton);
+
+$realStock = 0;
+if (!empty($product->whproducts)) {
+    foreach ($product->whproducts as $whp) {
+        if ($whp->has('warehouse') && $whp->warehouse && $whp->warehouse->whnature_id == 1) {
+            $realStock += $whp->quantity;
+        }
+    }
+}
+$totalValue = $realStock * $product->buyingprice;
 ?>
 
 <div class="card-body p-6">
@@ -49,16 +59,7 @@ $this->assign('edit', $editButton);
                                         <?= $this->Number->currency($product->buyingprice, 'MAD') ?>
                                     </td>
                                 </tr>
-                                <tr>
-                                    <td class="font-weight-bolder text-dark-50 pl-5"><?= __('Prix de vente') ?></td>
-                                    <td class="text-primary font-weight-bolder">
-                                        <?= $this->Number->currency($product->sellingprice, 'MAD') ?>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td class="font-weight-bolder text-dark-50 pl-5"><?= __('Commission') ?></td>
-                                    <td class="text-dark"><?= $this->Number->format($product->commission) ?></td>
-                                </tr>
+
                                 <tr>
                                     <td class="font-weight-bolder text-dark-50 pl-5"><?= __('Statut') ?></td>
                                     <td>
@@ -118,39 +119,25 @@ $this->assign('edit', $editButton);
                 </div>
             </div>
 
-            <!-- Product Sales Packages -->
-            <div class="card card-custom card-border mb-6">
-                <div class="card-header bg-light-primary border-0 min-h-50px px-5">
-                    <div class="card-title">
-                        <span class="card-icon">
-                            <i class="flaticon-open-box text-primary font-size-h5"></i>
-                        </span>
-                        <h5 class="card-label text-primary font-weight-bolder font-size-h6 mb-0">Unités de Vente</h5>
+            <!-- Real Stock & Value Widget -->
+            <div class="card card-custom bg-light-info card-stretch gutter-b mb-6">
+                <div class="card-body p-6">
+                    <span class="card-icon d-block mb-3">
+                        <i class="flaticon-boxes text-info font-size-h1"></i>
+                    </span>
+                    <div class="font-weight-bolder text-info font-size-h4 mb-2 d-block">
+                        Stock Réel
+                    </div>
+                    <div class="font-weight-bold text-info mt-2">
+                        <span class="font-size-h1 mr-2"><?= $realStock ?></span> <span class="font-size-lg">unités</span>
+                    </div>
+                    <div class="mt-5 pt-4 border-top border-info border-opacity-20">
+                        <span class="text-info font-weight-bolder font-size-lg">Valeur Totale :</span>
+                        <div class="text-info font-weight-bolder font-size-h2 mt-1"><?= $this->Number->currency($totalValue, 'MAD') ?></div>
                     </div>
                 </div>
-                <div class="card-body p-5">
-                    <?php if (!empty($product->productunites)): ?>
-                        <div class="list-group list-group-flush">
-                            <?php foreach ($product->productunites as $pu): ?>
-                                <?php if ($pu->has('unite') && $pu->unite): ?>
-                                    <div class="list-group-item d-flex align-items-center justify-content-between px-0 py-3">
-                                        <div class="d-flex align-items-center">
-                                            <i class="la la-box text-warning font-size-h3 mr-3"></i>
-                                            <span class="font-weight-bold text-dark-75"><?= h($pu->unite->title) ?></span>
-                                        </div>
-                                        <span class="label label-inline label-light-primary font-weight-bolder font-size-sm">
-                                            <?= $pu->quantity ?> pièces
-                                        </span>
-                                    </div>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <p class="text-muted text-center py-4 mb-0"><i class="flaticon2-warning text-warning mr-1"></i>
-                            Aucune unité définie.</p>
-                    <?php endif; ?>
-                </div>
             </div>
+
         </div>
     </div>
 
@@ -260,6 +247,63 @@ $this->assign('edit', $editButton);
                                 <td colspan="6" class="text-muted text-center py-4">
                                     <i class="flaticon2-warning text-warning mr-1"></i>
                                     <?= __('Aucune commande ou réception enregistrée pour ce produit.') ?>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bons de Conditionnement section -->
+    <div class="card card-custom card-border mt-6">
+        <div class="card-header bg-light-primary border-0 min-h-50px px-5">
+            <div class="card-title">
+                <span class="card-icon">
+                    <i class="flaticon2-box text-primary font-size-h5"></i>
+                </span>
+                <h5 class="card-label text-primary font-weight-bolder font-size-h6 mb-0">
+                    <?= __('Bons de Conditionnement') ?>
+                </h5>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-head-custom table-vertical-center table-hover mb-0">
+                    <thead>
+                        <tr class="bg-light">
+                            <th class="pl-5" scope="col"><?= __('N° Bon') ?></th>
+                            <th scope="col"><?= __('Date') ?></th>
+                            <th scope="col"><?= __('Quantité') ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (!empty($product->slipproducts)): ?>
+                            <?php foreach ($product->slipproducts as $sp): ?>
+                                <tr>
+                                    <td class="pl-5 font-weight-bold">
+                                        <?php if ($sp->has('slip') && $sp->slip): ?>
+                                            <?= $this->Html->link($sp->slip->code, ['controller' => 'Slips', 'action' => 'view', $sp->slip->id], ['class' => 'text-primary font-weight-bolder']) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-muted font-size-sm">
+                                        <?= h($sp->created) ?>
+                                    </td>
+                                    <td>
+                                        <span class="label label-inline label-light-info font-weight-bolder">
+                                            <?= h($sp->quantity) ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="3" class="text-muted text-center py-4">
+                                    <i class="flaticon2-warning text-warning mr-1"></i>
+                                    <?= __('Aucun bon de conditionnement enregistré pour ce produit.') ?>
                                 </td>
                             </tr>
                         <?php endif; ?>

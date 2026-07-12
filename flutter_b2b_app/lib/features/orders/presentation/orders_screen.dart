@@ -13,25 +13,25 @@ class OrdersScreen extends ConsumerWidget {
     final ordersAsync = ref.watch(ordersProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           Positioned(
             top: -100, left: -50,
             child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.3), shape: BoxShape.circle)),
+              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.08), shape: BoxShape.circle)),
             ),
           ),
           SafeArea(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.all(24.0),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
                   child: Text(
                     'Order History',
-                    style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 32, fontWeight: FontWeight.bold),
                   ),
                 ),
                 Expanded(
@@ -41,9 +41,9 @@ class OrdersScreen extends ConsumerWidget {
                       data: (orders) {
                         if (orders.isEmpty) {
                           return ListView(
-                            children: const [
-                              SizedBox(height: 100),
-                              Center(child: Text('No orders found.', style: TextStyle(color: Colors.white54, fontSize: 18))),
+                            children: [
+                              const SizedBox(height: 100),
+                              Center(child: Text('No orders found.', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 18))),
                             ],
                           );
                         }
@@ -51,11 +51,11 @@ class OrdersScreen extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                           itemCount: orders.length,
                           itemBuilder: (context, index) {
-                            return _buildOrderCard(orders[index]);
+                            return _buildOrderCard(context, orders[index]);
                           },
                         );
                       },
-                      loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+                      loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
                       error: (err, st) => Center(child: Text('Error: $err', style: const TextStyle(color: Colors.red))),
                     ),
                   ),
@@ -68,7 +68,7 @@ class OrdersScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildOrderCard(OrderModel order) {
+  Widget _buildOrderCard(BuildContext context, OrderModel order) {
     String formattedDate = order.date;
     try {
       final dt = DateTime.parse(order.date);
@@ -87,60 +87,61 @@ class OrdersScreen extends ConsumerWidget {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      child: ClipRRect(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(order.code.isNotEmpty ? order.code : '#ORD-${order.id}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: statusColor.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                      child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    if (order.firstProductImage != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(order.firstProductImage!, width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(width: 50, height: 50, color: Colors.white10, child: const Icon(Icons.image, color: Colors.white54))),
-                      )
-                    else
-                      Container(width: 50, height: 50, decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.shopping_bag, color: Colors.white54)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (order.firstProductTitle != null)
-                            Text(order.firstProductTitle!, style: const TextStyle(color: Colors.white70, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text('${order.itemCount} items', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                          const SizedBox(height: 4),
-                          Text(formattedDate, style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                    Text('${order.total.toStringAsFixed(2)} MAD', style: const TextStyle(color: Color(0xFF4F46E5), fontWeight: FontWeight.bold, fontSize: 16)),
-                  ],
+                Text(order.code.isNotEmpty ? order.code : '#ORD-${order.id}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: Text(statusText, style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (order.firstProductImage != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(order.firstProductImage!, width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_,__,___) => Container(width: 50, height: 50, color: Colors.grey.withOpacity(0.1), child: Icon(Icons.image, color: Theme.of(context).colorScheme.primary.withOpacity(0.3)))),
+                  )
+                else
+                  Container(width: 50, height: 50, decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Icon(Icons.shopping_bag, color: Theme.of(context).colorScheme.primary.withOpacity(0.3))),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (order.firstProductTitle != null)
+                        Text(order.firstProductTitle!, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8), fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text('${order.itemCount} items', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text(formattedDate, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4), fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Text('${order.total.toStringAsFixed(2)} MAD', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
+          ],
         ),
       ),
     );

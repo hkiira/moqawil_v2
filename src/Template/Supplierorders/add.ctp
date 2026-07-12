@@ -30,7 +30,6 @@ $this->assign('title', 'Ajouter un nouveau bon de commande');
                     <thead>
                       <tr>
                         <th>Article</th>
-                        <th>Quantité (Carton/Sac)</th>
                         <th>Quantité (Kg/unité)</th>
                         <th>Prix</th>
                       </tr>
@@ -38,7 +37,7 @@ $this->assign('title', 'Ajouter un nouveau bon de commande');
                     <tbody>
                       <?php foreach ($productselects as $key => $productselect): ?>
                         <?php if ($productselect['products']) { ?>
-                          <tr><td><h6><?= $productselect['category']  ?></h6></td><td></td><td></td><td></td></tr>
+                          <tr><td><h6><?= $productselect['category']  ?></h6></td><td></td><td></td></tr>
                           <?php foreach ($productselect['products'] as $key1 => $product): ?>
                             <tr>
                               <?= $this->Form->control('supporderproducts.'.$product['id'].'.product_id', ['type' => 'hidden','class' => 'form-control','label' => false, 'value' => $product['product_id']]); ?>
@@ -47,11 +46,7 @@ $this->assign('title', 'Ajouter un nouveau bon de commande');
                                 <?=$product['title']  ?><br>
                                 <?=$product['qtepercs'].' '.$product['piecekg'].' par '.$product['carsac'] ?>
                               </td>
-                              <td>
-                                <?php if (isset($product[0]['price'])): ?>
-                                  <?= $this->Form->control('supporderproducts.'.$product['id'].'.0.quantity', ['type' => 'number','min'=>'0' ,'class' => 'form-control','label' => false, 'value' => 0]); ?>
-                                <?php endif ?>
-                              </td>
+
                               <td>
                                 <?php if (isset($product[1]['price'])): ?>
                                   <?= $this->Form->control('supporderproducts.'.$product['id'].'.1.quantity', ['type' => 'number','min'=>'0','class' => 'form-control','label' => false, 'value' => 0]); ?>

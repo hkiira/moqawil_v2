@@ -42,7 +42,9 @@ class OrderModel {
       total: (json['total'] as num?)?.toDouble() ?? 0.0,
       status: json['statut'] ?? 0,
       itemCount: count,
-      firstProductImage: img != null ? 'http://localhost/moqa' + img : null,
+      firstProductImage: img != null
+          ? (img.startsWith('http') ? img : 'http://localhost/moqa' + img)
+          : null,
       firstProductTitle: title,
     );
   }

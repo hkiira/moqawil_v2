@@ -11,14 +11,14 @@ class LoyaltyScreen extends ConsumerWidget {
     final loyaltyAsync = ref.watch(loyaltyProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E2C),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           Positioned(
             top: -100, right: -50,
             child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.3), shape: BoxShape.circle)),
+              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.08), shape: BoxShape.circle)),
             ),
           ),
           SafeArea(
@@ -27,8 +27,8 @@ class LoyaltyScreen extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
-                    const Text('Loyalty Points', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    IconButton(icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.onSurface), onPressed: () => Navigator.pop(context)),
+                    Text('Loyalty Points', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 24, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 Expanded(
@@ -39,18 +39,18 @@ class LoyaltyScreen extends ConsumerWidget {
                         return ListView(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                           children: [
-                            _buildPointsCard(data.totalPoints),
+                            _buildPointsCard(context, data.totalPoints),
                             const SizedBox(height: 32),
-                            const Text('History', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text('History', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 16),
                             if (data.history.isEmpty)
-                              const Center(child: Text('No points history available', style: TextStyle(color: Colors.white54, fontSize: 16)))
+                              Center(child: Text('No points history available', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 16)))
                             else
-                              ...data.history.map((item) => _buildHistoryItem(item)),
+                              ...data.history.map((item) => _buildHistoryItem(context, item)),
                           ],
                         );
                       },
-                      loading: () => const Center(child: CircularProgressIndicator(color: Colors.white)),
+                      loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
                       error: (e, st) => Center(child: Text('Error: $e', style: const TextStyle(color: Colors.red))),
                     ),
                   ),
@@ -63,67 +63,69 @@ class LoyaltyScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPointsCard(double totalPoints) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+  Widget _buildPointsCard(BuildContext context, double totalPoints) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
-          child: Column(
-            children: [
-              const Icon(Icons.star, color: Colors.amber, size: 64),
-              const SizedBox(height: 16),
-              const Text('Total Points', style: TextStyle(color: Colors.white70, fontSize: 18)),
-              const SizedBox(height: 8),
-              Text(
-                '${totalPoints.toStringAsFixed(0)}',
-                style: const TextStyle(color: Colors.white, fontSize: 48, fontWeight: FontWeight.bold),
-              ),
-            ],
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.star, color: Theme.of(context).colorScheme.secondary, size: 64),
+          const SizedBox(height: 16),
+          Text('Total Points', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7), fontSize: 18)),
+          const SizedBox(height: 8),
+          Text(
+            '${totalPoints.toStringAsFixed(0)}',
+            style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 48, fontWeight: FontWeight.bold),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildHistoryItem(item) {
+  Widget _buildHistoryItem(BuildContext context, item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ClipRRect(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Code: ${item.code}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    Text('Value: ${item.valeur} MAD', style: const TextStyle(color: Colors.white54, fontSize: 14)),
-                  ],
-                ),
-                Text(
-                  '+${item.points.toStringAsFixed(0)} pts',
-                  style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 18),
-                )
+                Text('Code: ${item.code}', style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text('Value: ${item.valeur} MAD', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6), fontSize: 14)),
               ],
             ),
-          ),
+            Text(
+              '+${item.points.toStringAsFixed(0)} pts',
+              style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 18),
+            )
+          ],
         ),
       ),
     );

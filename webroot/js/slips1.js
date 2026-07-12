@@ -144,10 +144,12 @@ var KTDatatableRemoteAjaxDemo = function() {
                                         <ul class="nav nav-hoverable flex-column">';
                             if(row.status==2){
                                 actions+='<li class="nav-item"><a class="nav-link" href="/slips/print/' +  row.id + '.pdf" target="_blank""><span class="nav-text">Imprimer</span></a></li>';
+                                actions+='<li class="nav-item"><a class="nav-link" href="/slips/inventory/' +  row.id + '.pdf" target="_blank"><span class="nav-text">Inventaire</span></a></li>';
                                 actions+='<li class="nav-item"><a class="nav-link" href="/slips/validation/' +  row.id + '"><span class="nav-text">Valider</span></a></li>';
                                 actions+='<li class="nav-item"><a class="nav-link" href="/slips/delete/' +  row.id + '"><span class="nav-text">Supprimer</span></a></li>';
                             }else{
                                 actions+='<li class="nav-item"><a class="nav-link" href="/slips/print/' +  row.id + '.pdf" target="_blank""><span class="nav-text">Imprimer</span></a></li>';
+                                actions+='<li class="nav-item"><a class="nav-link" href="/slips/inventory/' +  row.id + '.pdf" target="_blank"><span class="nav-text">Inventaire</span></a></li>';
                             }
                             
                         actions+='</ul>\

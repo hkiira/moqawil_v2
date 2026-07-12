@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/routing/app_router.dart';
 
+import 'core/theme/app_theme.dart';
+
 void main() {
   runApp(
     const ProviderScope(
@@ -18,10 +20,7 @@ class B2BCustomerApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'B2B Customer App',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF667eea)), // Matching web primary color
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       routerConfig: goRouter,
     );
   }

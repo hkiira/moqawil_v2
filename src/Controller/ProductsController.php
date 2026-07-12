@@ -56,10 +56,16 @@ class ProductsController extends AppController
     {
         $product = $this->Products->get($id, [
             'contain' => [
-                'Categories', 
-                'Productunites.Unites', 
-                'Suppliers', 
+                'Categories',
+                'Productunites.Unites',
+                'Suppliers',
                 'Packproducts.Packs',
+                'Whproducts.Warehouses',
+                'Slipproducts' => function ($q) {
+                    return $q->contain(['Slips'])
+                        ->where(['Slips.sliptype_id' => 6])
+                        ->order(['Slipproducts.created' => 'DESC']);
+                },
                 'Supporderproducts' => function ($q) {
                     return $q->contain([
                         'Supplierorders',
@@ -111,7 +117,19 @@ class ProductsController extends AppController
             $datas['reference'] = 'PR';
             $whproducts = $datas['whproducts'];
 
-            $product = $this->Products->patchEntity($product, $datas, ['associated' => ['Photos']]);
+            // Provide a default Productunite since it was removed from the form
+            // but is required by Supplierorders and other parts of the system
+            $datas['productunites'] = [
+                [
+                    'unite_id' => 3, // Default base unit
+                    'quantity' => 1,
+                    'statut' => 1,
+                    'company_id' => $this->Auth->user('company_id')
+                ]
+            ];
+
+            $product = $this->Products->patchEntity($product, $datas, ['associated' => ['Photos', 'Productunites']]);
+
 
 
             /*$product->photo->title=$product->title;
@@ -410,9 +428,11 @@ class ProductsController extends AppController
             if (!empty($product->whproducts)) {
                 foreach ($product->whproducts as $whp) {
                     $qty = (int) $whp->quantity;
-                    $totalStock += $qty;
                     if ($whp->has('warehouse') && $whp->warehouse) {
-                        $stockDetails[] = h($whp->warehouse->title) . ': ' . $qty;
+                        if ($whp->warehouse->whnature_id == 1) {
+                            $totalStock += $qty;
+                            $stockDetails[] = h($whp->warehouse->title) . ': ' . $qty;
+                        }
                     }
                 }
             }
@@ -421,30 +441,15 @@ class ProductsController extends AppController
             // Pieces per unit & Unit abbreviation
             $piecesPerUnit = 1;
             $unitAbbreviation = 'Pièce';
+            $parentAbrev = 'pièce';
             $productUniteStr = '';
             if (!empty($product->productunites) && isset($product->productunites[0])) {
                 $pUnite = $product->productunites[0];
-                $piecesPerUnit = $pUnite->quantity > 0 ? $pUnite->quantity : 1;
-                if ($pUnite->has('unite')) {
-                    $unitAbbreviation = $pUnite->unite->abrev;
-                    $parentAbrev = ($pUnite->unite->has('parentunite') && $pUnite->unite->parentunite) ? $pUnite->unite->parentunite->abrev : 'pièce';
-                    $productUniteStr = $pUnite->quantity . ' ' . $parentAbrev . 's par ' . $pUnite->unite->title;
+                if ($pUnite->has('unite') && $pUnite->unite->has('parentunite') && $pUnite->unite->parentunite) {
+                    $parentAbrev = $pUnite->unite->parentunite->abrev;
                 }
             }
-
-            // Format stock display
-            $quantityInfo = $this->formatQuantity($totalStock, $piecesPerUnit, $unitAbbreviation);
-            $measurementQuantity = isset($product->measurement_quantity) ? $product->measurement_quantity : 0;
-            $totalMeasurement = $measurementQuantity * $totalStock;
-            $unitAbbr = ($product->has('measurement_unit') && $product->measurement_unit) ? $product->measurement_unit->abbreviation : '';
-            $formattedMeasurement = $this->formatMeasurement($totalMeasurement, $unitAbbr);
-
-            $displayQuantity = $quantityInfo['display'] ? $quantityInfo['display'] : '0 Pièce';
-            if ($totalMeasurement > 0 && !empty($unitAbbr)) {
-                $displayQuantity .= '<br><small>(' . $formattedMeasurement . ')</small>';
-            } else {
-                $displayQuantity .= '<br><small>(' . $totalStock . ' pièces)</small>';
-            }
+            $displayQuantity = $totalStock . ' ' . $parentAbrev;
 
             $actions = '<a href="' . Router::url(['action' => 'view', $product->id]) . '" class="btn btn-sm btn-clean btn-icon" title="Afficher">
                             <i class="la la-eye text-primary"></i>

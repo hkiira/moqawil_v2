@@ -37,7 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E2C),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // Background blobs
@@ -45,14 +45,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             top: -100, left: -50,
             child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.3), shape: BoxShape.circle)),
+              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.08), shape: BoxShape.circle)),
             ),
           ),
           Positioned(
             bottom: -50, right: -50,
             child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-              child: Container(width: 250, height: 250, decoration: BoxDecoration(color: Colors.pinkAccent.withOpacity(0.2), shape: BoxShape.circle)),
+              child: Container(width: 250, height: 250, decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withOpacity(0.08), shape: BoxShape.circle)),
             ),
           ),
           SafeArea(
@@ -76,13 +76,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             Icon(
                               _getIcon(_onboardingData[index]['icon']!),
                               size: 120,
-                              color: Colors.white,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                             const SizedBox(height: 60),
                             Text(
                               _onboardingData[index]['title']!,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -91,8 +91,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             const SizedBox(height: 20),
                             Text(
                               _onboardingData[index]['subtitle']!,
-                              style: const TextStyle(
-                                color: Colors.white70,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                                 fontSize: 18,
                                 height: 1.5,
                               ),
@@ -114,7 +114,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       height: 8,
                       width: _currentPage == index ? 24 : 8,
                       decoration: BoxDecoration(
-                        color: _currentPage == index ? const Color(0xFF4F46E5) : Colors.white38,
+                        color: _currentPage == index ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -138,7 +138,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4F46E5),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),

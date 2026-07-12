@@ -994,16 +994,16 @@ class SlipsController extends AppController
                     $datas['slipproducts'][$key]['item_type'] = "Product";
                     if (isset($orderproduct[0]) && isset($orderproduct[1])) {
                         $datas['slipproducts'][$key]['quantity'] = ($orderproduct[0]['quantity'] * $productunite->quantity) + $orderproduct[1]['quantity'];
-                        $datas['slipproducts'][$key]['price'] = $orderproduct['price'] / $productunite->quantity;
+                        $datas['slipproducts'][$key]['price'] = $product->sellingprice;
                         unset($datas['slipproducts'][$key][0]);
                         unset($datas['slipproducts'][$key][1]);
                     } elseif (isset($orderproduct[0]) && !isset($orderproduct[1])) {
                         $datas['slipproducts'][$key]['quantity'] = ($orderproduct[0]['quantity'] * $productunite->quantity);
-                        $datas['slipproducts'][$key]['price'] = $orderproduct['price'] / $productunite->quantity;
+                        $datas['slipproducts'][$key]['price'] = $product->sellingprice;
                         unset($datas['slipproducts'][$key][0]);
                     } else {
                         $datas['slipproducts'][$key]['quantity'] = $orderproduct[1]['quantity'];
-                        $datas['slipproducts'][$key]['price'] = $orderproduct['price'] / $productunite->quantity;
+                        $datas['slipproducts'][$key]['price'] = $product->sellingprice;
                         unset($datas['slipproducts'][$key][1]);
                     }
 
@@ -1016,7 +1016,7 @@ class SlipsController extends AppController
 
                 $slip->user_id = $this->Auth->user('id');
                 $slip->company_id = $this->Auth->user('company_id');
-                $slip->whnature_id = 2;
+                $slip->whnature_id = 1;
                 $slip->warehouse_id = 1;
                 $slip->statut = 2;
                 $slip->warehoused = 1;
@@ -1173,6 +1173,8 @@ class SlipsController extends AppController
     }
     public function validation($id)
     {
+        $this->loadModel('Whproducts');
+        $this->loadModel('StockMovements');
         //récupérer le bon pour les entrepots et les natures
         $slipdepart = $this->Slips->get($id);
         $request = 0;
@@ -1238,28 +1240,54 @@ class SlipsController extends AppController
                     $whproductd = $this->Slips->Slipproducts->Products->Whproducts->find('all')->where(['warehouse_id' => $warehoused->id, 'item_id' => $slipproduct->item_id, 'item_type' => $slipproduct->item_type])->first();
                     //récuperer la quantité par sac/carton du produit
                     $productunite = $this->Slips->Slipproducts->Productunites->get($slipproduct->unity_id);
+                    $qtyCarton = isset($slipprd[0]['quantity']) ? intVal($slipprd[0]['quantity']) : 0;
+                    $qtyUnite = isset($slipprd[1]['quantity']) ? intVal($slipprd[1]['quantity']) : 0;
+                    $validatedQty = ($qtyCarton * $productunite->quantity) + $qtyUnite;
+
                     //si la quantité validé est la mm quantité déclarer lors de la création du bon
-                    if (($slipprd[0]['quantity'] * $productunite->quantity + $slipprd[1]['quantity']) >= $slipproduct->quantity) {
+                    if ($validatedQty >= $slipproduct->quantity) {
                         $data['slipproducts'][$increment]['id'] = $slipproduct->id;
                         $data['slipproducts'][$increment]['statut'] = 3;
                         $data['slipproducts'][$increment]['unity_id'] = $slipproduct->unity_id;
                         $data['slipproducts'][$increment]['item_type'] = $slipproduct->item_type;
                         $data['slipproducts'][$increment]['price'] = $slipproduct->price;
                         $data['slipproducts'][$increment]['uservalidate'] = $this->Auth->user('id');
-                        $data['slipproducts'][$increment]['product']['id'] = $slipproduct->item_id;
                         if ($whproduct) {
-                            $data['slipproducts'][$increment]['product']['whproducts'][0]['id'] = $whproduct->id;
-                            $data['slipproducts'][$increment]['product']['whproducts'][0]['quantity'] = $whproduct->quantity - $slipproduct->quantity;
+                            $whproduct->quantity -= $slipproduct->quantity;
+                            $this->Whproducts->save($whproduct);
+                            $movSource = $this->StockMovements->newEntity([
+                                'item_id' => $slipproduct->item_id,
+                                'item_type' => $slipproduct->item_type,
+                                'warehouse_id' => $whproduct->warehouse_id,
+                                'quantity_change' => -$slipproduct->quantity,
+                                'balance_after_movement' => $whproduct->quantity,
+                                'movement_type' => 'slip_validation_source',
+                                'user_id' => $this->Auth->user('id'),
+                                'company_id' => $this->Auth->user('company_id'),
+                                'notes' => 'Stock deduction on slip validation (Slip ID: ' . $slip->id . ')',
+                            ]);
+                            $this->StockMovements->save($movSource);
                         }
                         if ($whproductd) {
-                            $data['slipproducts'][$increment]['product']['whproducts'][1]['id'] = $whproductd->id;
-                            $data['slipproducts'][$increment]['product']['whproducts'][1]['quantity'] = $whproductd->quantity + $slipproduct->quantity;
+                            $whproductd->quantity += $slipproduct->quantity;
+                            $this->Whproducts->save($whproductd);
+                            $movDest = $this->StockMovements->newEntity([
+                                'item_id' => $slipproduct->item_id,
+                                'item_type' => $slipproduct->item_type,
+                                'warehouse_id' => $whproductd->warehouse_id,
+                                'quantity_change' => $slipproduct->quantity,
+                                'balance_after_movement' => $whproductd->quantity,
+                                'movement_type' => 'slip_validation_dest',
+                                'user_id' => $this->Auth->user('id'),
+                                'company_id' => $this->Auth->user('company_id'),
+                                'notes' => 'Stock addition on slip validation (Slip ID: ' . $slip->id . ')',
+                            ]);
+                            $this->StockMovements->save($movDest);
                         }
                         $increment++;
 
                         //si la quantité validé et inférieur a la quantité commande et supérieur ou égale a 0
-                    } elseif (($slipprd[0]['quantity'] * $productunite->quantity + $slipprd[1]['quantity']) < $slipproduct->quantity && ($slipprd[0]['quantity'] * $productunite->quantity + $slipprd[1]['quantity']) >= 0) {
-                        $validatedQty = ($slipprd[0]['quantity'] * $productunite->quantity + $slipprd[1]['quantity']);
+                    } elseif ($validatedQty < $slipproduct->quantity && $validatedQty >= 0) {
                         $data['slipproducts'][$increment]['id'] = $slipproduct->id;
                         $data['slipproducts'][$increment]['statut'] = 3;
                         $data['slipproducts'][$increment]['unity_id'] = $slipproduct->unity_id;
@@ -1269,12 +1297,36 @@ class SlipsController extends AppController
                         $data['slipproducts'][$increment]['uservalidate'] = $this->Auth->user('id');
 
                         if ($whproduct) {
-                            $data['slipproducts'][$increment]['product']['whproducts'][0]['id'] = $whproduct->id;
-                            $data['slipproducts'][$increment]['product']['whproducts'][0]['quantity'] = $whproduct->quantity - $validatedQty;
+                            $whproduct->quantity -= $validatedQty;
+                            $this->Whproducts->save($whproduct);
+                            $movSource = $this->StockMovements->newEntity([
+                                'item_id' => $slipproduct->item_id,
+                                'item_type' => $slipproduct->item_type,
+                                'warehouse_id' => $whproduct->warehouse_id,
+                                'quantity_change' => -$validatedQty,
+                                'balance_after_movement' => $whproduct->quantity,
+                                'movement_type' => 'slip_validation_source',
+                                'user_id' => $this->Auth->user('id'),
+                                'company_id' => $this->Auth->user('company_id'),
+                                'notes' => 'Stock deduction on slip validation (Slip ID: ' . $slip->id . ')',
+                            ]);
+                            $this->StockMovements->save($movSource);
                         }
                         if ($whproductd) {
-                            $data['slipproducts'][$increment]['product']['whproducts'][1]['id'] = $whproductd->id;
-                            $data['slipproducts'][$increment]['product']['whproducts'][1]['quantity'] = $whproductd->quantity + $validatedQty;
+                            $whproductd->quantity += $validatedQty;
+                            $this->Whproducts->save($whproductd);
+                            $movDest = $this->StockMovements->newEntity([
+                                'item_id' => $slipproduct->item_id,
+                                'item_type' => $slipproduct->item_type,
+                                'warehouse_id' => $whproductd->warehouse_id,
+                                'quantity_change' => $validatedQty,
+                                'balance_after_movement' => $whproductd->quantity,
+                                'movement_type' => 'slip_validation_dest',
+                                'user_id' => $this->Auth->user('id'),
+                                'company_id' => $this->Auth->user('company_id'),
+                                'notes' => 'Stock addition on slip validation (Slip ID: ' . $slip->id . ')',
+                            ]);
+                            $this->StockMovements->save($movDest);
                         }
 
                         $increment++;
@@ -3455,5 +3507,37 @@ class SlipsController extends AppController
         ini_set('max_execution_time', '300');
         ini_set("pcre.backtrack_limit", "5000000");
         $this->set(compact('productData', 'startDate', 'endDate', 'userId', 'selectedUser', 'warehouse', 'company', 'slips', 'purchaseOrders', 'salesOrders', 'slipOrderAmount', 'purchaseOrderAmount', 'salesOrderAmount', 'salesRealAmount', 'remainingStockAmount'));
+    }
+
+    /**
+     * Generate inventory PDF for a slip
+     *
+     * @param string|null $id Slip id.
+     * @return \Cake\Http\Response|null
+     */
+    public function inventory($id = null)
+    {
+        $slip = $this->Slips->get($id, [
+            'contain' => [
+                'Users',
+                'Warehouses',
+                'Whnatures',
+                'Slipproducts' => [
+                    'Packs' => [
+                        'Packunites' => ['Unites' => ['Parentunites']],
+                        'MeasurementUnits'
+                    ],
+                    'Products' => [
+                        'Productunites' => ['Unites' => ['Parentunites']],
+                        'MeasurementUnits'
+                    ]
+                ]
+            ]
+        ]);
+        
+        ini_set('max_execution_time', '300');
+        ini_set("pcre.backtrack_limit", "5000000");
+
+        $this->set(compact('slip'));
     }
 }

@@ -38,7 +38,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E2C),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // Global Glassmorphism Backgrounds
@@ -46,7 +46,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             top: -100, right: -50,
             child: ImageFiltered(
               imageFilter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: const Color(0xFF4F46E5).withOpacity(0.3), shape: BoxShape.circle)),
+              child: Container(width: 300, height: 300, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.08), shape: BoxShape.circle)),
             ),
           ),
 
@@ -57,39 +57,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 expandedHeight: 0,
                 floating: true,
                 pinned: true,
-                elevation: _isScrolled ? 4 : 0,
-                backgroundColor: _isScrolled ? const Color(0xFF1E1E2C).withOpacity(0.9) : Colors.transparent,
+                elevation: _isScrolled ? 2 : 0,
+                backgroundColor: _isScrolled ? Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95) : Colors.transparent,
                 title: Container(
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.black.withOpacity(0.05),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
                   ),
                   child: TextField(
                     readOnly: true,
                     onTap: () => context.push('/search'),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                    decoration: InputDecoration(
                       hintText: 'Search products...',
-                      hintStyle: TextStyle(color: Colors.white54),
-                      prefixIcon: Icon(Icons.search, color: Colors.white54),
+                      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                      prefixIcon: Icon(Icons.search, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
                 ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.notifications_none, color: Colors.white),
+                    icon: Icon(Icons.notifications_none, color: Theme.of(context).colorScheme.onSurface),
                     onPressed: () {},
                   ),
                   IconButton(
-                    icon: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                    icon: Icon(Icons.shopping_cart_outlined, color: Theme.of(context).colorScheme.onSurface),
                     onPressed: () {},
                   ),
                   IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
+                    icon: Icon(Icons.logout, color: Theme.of(context).colorScheme.onSurface),
                     onPressed: () async {
                       await ref.read(secureStorageProvider).deleteToken();
                       if (context.mounted) context.go('/login');
@@ -146,8 +146,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     fit: BoxFit.cover,
                     width: double.infinity,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.white10,
-                      child: const Center(child: Icon(Icons.image, color: Colors.white54, size: 50)),
+                      color: Colors.grey.withOpacity(0.1),
+                      child: Center(child: Icon(Icons.image, color: Theme.of(context).colorScheme.primary.withOpacity(0.4), size: 50)),
                     ),
                   ),
                 );
@@ -171,7 +171,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Categories', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text('Categories', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
               const SizedBox(height: 16),
               GridView.builder(
                 shrinkWrap: true,
@@ -192,23 +192,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         Expanded(
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white.withOpacity(0.2)),
-                                ),
-                                child: cat['image'] != null && cat['image'].toString().isNotEmpty
-                                  ? Image.network(cat['image'], fit: BoxFit.cover, errorBuilder: (_,__,___) => const Center(child: Icon(Icons.category, color: Colors.white54)))
-                                  : const Center(child: Icon(Icons.category, color: Colors.white54)),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.03),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                               ),
+                              child: cat['image'] != null && cat['image'].toString().isNotEmpty
+                                ? Image.network(cat['image'], fit: BoxFit.cover, errorBuilder: (_,__,___) => Center(child: Icon(Icons.category, color: Theme.of(context).colorScheme.primary.withOpacity(0.4))))
+                                : Center(child: Icon(Icons.category, color: Theme.of(context).colorScheme.primary.withOpacity(0.4))),
                             ),
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(cat['title'] ?? 'Category', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text(cat['title'] ?? 'Category', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8), fontSize: 12)),
                       ],
                     ),
                   );
@@ -231,9 +235,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text('New Arrivals', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('New Arrivals', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -248,9 +252,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     width: 160,
                     margin: const EdgeInsets.only(right: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -259,10 +270,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                           child: Container(
                             height: 140,
-                            color: Colors.white10,
+                            color: Colors.grey.withOpacity(0.05),
                             child: product['image'] != null && product['image'].toString().isNotEmpty
-                                ? Image.network(product['image'], fit: BoxFit.cover, errorBuilder: (_,__,___) => const Center(child: Icon(Icons.shopping_bag, size: 50, color: Colors.white54)))
-                                : const Center(child: Icon(Icons.shopping_bag, size: 50, color: Colors.white54)),
+                                ? Image.network(product['image'], fit: BoxFit.cover, errorBuilder: (_,__,___) => Center(child: Icon(Icons.shopping_bag, size: 50, color: Theme.of(context).colorScheme.primary.withOpacity(0.3))))
+                                : Center(child: Icon(Icons.shopping_bag, size: 50, color: Theme.of(context).colorScheme.primary.withOpacity(0.3))),
                           ),
                         ),
                         Padding(
@@ -270,9 +281,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(product['title'] ?? 'Product', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              Text(product['title'] ?? 'Product', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 8),
-                              Text('\$${product['price'] ?? '0.00'}', style: const TextStyle(color: Color(0xFF0D9488), fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text('\$${product['price'] ?? '0.00'}', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold, fontSize: 16)),
                             ],
                           ),
                         )
@@ -298,9 +309,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Featured Brands', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('Featured Brands', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -313,26 +324,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   final brand = brands[index];
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                      child: Container(
-                        width: 100,
-                        margin: const EdgeInsets.only(right: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            brand['image'] != null && brand['image'].toString().isNotEmpty
-                                ? Image.network(brand['image'], width: 40, height: 40, errorBuilder: (_,__,___) => const Icon(Icons.branding_watermark, color: Colors.white54, size: 40))
-                                : const Icon(Icons.branding_watermark, color: Colors.white54, size: 40),
-                            const SizedBox(height: 8),
-                            Text(brand['title'] ?? 'Brand', style: const TextStyle(color: Colors.white70)),
-                          ],
-                        ),
+                    child: Container(
+                      width: 100,
+                      margin: const EdgeInsets.only(right: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.withOpacity(0.15)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          brand['image'] != null && brand['image'].toString().isNotEmpty
+                              ? Image.network(brand['image'], width: 40, height: 40, errorBuilder: (_,__,___) => Icon(Icons.branding_watermark, color: Theme.of(context).colorScheme.primary.withOpacity(0.4), size: 40))
+                              : Icon(Icons.branding_watermark, color: Theme.of(context).colorScheme.primary.withOpacity(0.4), size: 40),
+                          const SizedBox(height: 8),
+                          Text(brand['title'] ?? 'Brand', style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8))),
+                        ],
                       ),
                     ),
                   );
