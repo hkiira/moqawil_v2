@@ -79,12 +79,13 @@
 				<tr>
 					<th style="width: 10%;">Référence</th>
 					<th style="width: 25%;">Désignation</th>
-					<th style="text-align: right; width: 10%;">Qty Rec.</th>
-					<th style="text-align: right; width: 12%;">Valeur Rec.</th>
-					<th style="text-align: right; width: 10%;">Qty Cond.</th>
-					<th style="text-align: right; width: 12%;">Valeur Cond.</th>
-					<th style="text-align: right; width: 10%;">Diff Qty</th>
-					<th style="text-align: right; width: 11%;">Diff Valeur</th>
+					<th style="text-align: right; width: 8%;">Stock Réel</th>
+					<th style="text-align: right; width: 8%;">Qty Rec.</th>
+					<th style="text-align: right; width: 11%;">Valeur Rec.</th>
+					<th style="text-align: right; width: 8%;">Qty Cond.</th>
+					<th style="text-align: right; width: 11%;">Valeur Cond.</th>
+					<th style="text-align: right; width: 9%;">Diff Qty</th>
+					<th style="text-align: right; width: 10%;">Diff Valeur</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -117,6 +118,16 @@
 						}
 					}
 
+					// Calculate real stock from whproducts
+					$realStock = 0;
+					if (!empty($product->whproducts)) {
+						foreach ($product->whproducts as $whp) {
+							if ($whp->has('warehouse') && $whp->warehouse && $whp->warehouse->whnature_id == 1) {
+								$realStock += $whp->quantity;
+							}
+						}
+					}
+
 					// Skip products with absolutely no activity during the filtered period
 					if ($receiptsQty == 0 && $slipsQty == 0) {
 						continue;
@@ -134,6 +145,7 @@
 					<tr>
 						<td><?= h($product->reference) ?></td>
 						<td style="font-weight: bold;"><?= h($product->title) ?></td>
+						<td style="text-align: right; font-weight: bold;"><?= $realStock ?></td>
 						<td style="text-align: right; color: #28A745;"><?= $receiptsQty ?></td>
 						<td style="text-align: right; color: #28A745;"><?= number_format($receiptsValue, 2, ',', ' ') ?> DH</td>
 						<td style="text-align: right; color: #DC3545;"><?= $slipsQty ?></td>
@@ -145,7 +157,7 @@
 
 				<?php if (!$hasAnyActivity): ?>
 					<tr>
-						<td colspan="8" style="text-align: center; color: #777; font-style: italic; padding: 15px;">
+						<td colspan="9" style="text-align: center; color: #777; font-style: italic; padding: 15px;">
 							Aucune activité enregistrée (réceptions ou conditionnements) pour aucun produit durant cette période.
 						</td>
 					</tr>

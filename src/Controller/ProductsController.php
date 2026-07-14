@@ -166,6 +166,7 @@ class ProductsController extends AppController
         $products = $this->Products->find('all')
             ->contain([
                 'Categories',
+                'Whproducts.Warehouses',
                 'Slipproducts' => function ($q) use ($startDate, $endDate) {
                     $q = $q->contain(['Slips'])
                         ->where(['Slips.sliptype_id' => 6]);
