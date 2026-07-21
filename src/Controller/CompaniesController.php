@@ -3,6 +3,7 @@ namespace App\Controller;
 
 use App\Controller\AppController;
 use Cake\I18n\Time;
+use Cake\Event\Event;
 
 /**
  * Companies Controller
@@ -17,6 +18,11 @@ use Cake\I18n\Time;
  */
 class CompaniesController extends AppController
 {
+    public function beforeFilter(Event $event)
+    {
+        parent::beforeFilter($event);
+        $this->Auth->allow(['add']);
+    }
     /**
      * Index method
      *
@@ -120,15 +126,139 @@ class CompaniesController extends AppController
     {
         $company = $this->Companies->newEntity();
         if ($this->request->is('post')) {
-            debug($this->request->getData());
-            die();
-            $company = $this->Companies->patchEntity($company, $this->request->getData());
+            $data = $this->request->getData();
+            
+            // Map form data to company properties
+            $companyData = [
+                'name' => ucfirst($data['fname']) . ' ' . ucfirst($data['lname']),
+                'code' => strtolower($data['fname']),
+                'phone' => $data['phone'] ?? null,
+                'mail' => $data['email'] ?? null,
+                'tva' => 20, // Default VAT
+                'statut' => 1
+            ];
+            
+            $company = $this->Companies->patchEntity($company, $companyData);
             if ($this->Companies->save($company)) {
-                $this->Flash->success(__('The company has been saved.'));
+                // 1. Seed default Companycodes from template Company 1
+                $this->loadModel('Companycodes');
+                $templateCodes = $this->Companycodes->find('all')->where(['company_id' => 1]);
+                foreach ($templateCodes as $templateCode) {
+                    $newCode = $this->Companycodes->newEntity([
+                        'name' => $templateCode->name,
+                        'controleur' => $templateCode->controleur,
+                        'prefixe' => $templateCode->prefixe,
+                        'compteur' => ($templateCode->controleur === 'Users') ? 1 : 0, // start user counter at 1 for the admin user
+                        'company_id' => $company->id,
+                        'statut' => $templateCode->statut
+                    ]);
+                    $this->Companycodes->save($newCode);
+                }
 
-                return $this->redirect(['action' => 'index']);
+                // 2. Seed default role permissions (Accesroles) from template Company 1
+                $this->loadModel('Accesroles');
+                $templatePermissions = $this->Accesroles->find('all')->where(['company_id' => 1]);
+                foreach ($templatePermissions as $temp) {
+                    $newPermission = $this->Accesroles->newEntity([
+                        'access_id' => $temp->access_id,
+                        'role_id' => $temp->role_id,
+                        'company_id' => $company->id,
+                        'authorised' => $temp->authorised,
+                        'hisown' => $temp->hisown,
+                        'statut' => $temp->statut
+                    ]);
+                }
+
+                // 2.5 Seed baseline lookup tables from Company 1
+                $seedTables = [
+                    'Brands',
+                    'Whnatures',
+                    'Whtypes',
+                    'Pofstypes',
+                    'Customertypes',
+                    'MeasurementUnits',
+                    'Saletypes'
+                ];
+                foreach ($seedTables as $modelName) {
+                    $this->loadModel($modelName);
+                    $templateRecords = $this->{$modelName}->find('all')->where(['company_id' => 1]);
+                    foreach ($templateRecords as $record) {
+                        $recordData = $record->toArray();
+                        unset($recordData['id']);
+                        $recordData['company_id'] = $company->id;
+                        $newRecord = $this->{$modelName}->newEntity($recordData);
+                        $this->{$modelName}->save($newRecord);
+                    }
+                }
+
+                // Seed default Unites from template Company 1 (with self-parent mapping)
+                $this->loadModel('Unites');
+                $templateUnites = $this->Unites->find('all')->where(['company_id' => 1])->order(['id' => 'ASC']);
+                $uniteIdMap = [];
+                foreach ($templateUnites as $unite) {
+                    $oldId = $unite->id;
+                    $uniteData = $unite->toArray();
+                    unset($uniteData['id']);
+                    $uniteData['company_id'] = $company->id;
+                    if ($unite->unite_id !== null && isset($uniteIdMap[$unite->unite_id])) {
+                        $uniteData['unite_id'] = $uniteIdMap[$unite->unite_id];
+                    } else {
+                        $uniteData['unite_id'] = null;
+                    }
+                    $newUnite = $this->Unites->newEntity($uniteData);
+                    if ($this->Unites->save($newUnite)) {
+                        $uniteIdMap[$oldId] = $newUnite->id;
+                    }
+                }
+                foreach ($templateUnites as $unite) {
+                    if ($unite->unite_id !== null && isset($uniteIdMap[$unite->unite_id]) && isset($uniteIdMap[$unite->id])) {
+                        $newUnite = $this->Unites->get($uniteIdMap[$unite->id]);
+                        $newUnite->unite_id = $uniteIdMap[$unite->unite_id];
+                        $this->Unites->save($newUnite);
+                    }
+                }
+
+                // 3. Create the first Admin user for this company
+                $this->loadModel('Users');
+                
+                // Get the User code we just seeded
+                $userCodeEntity = $this->Companycodes->find('all')
+                    ->where(['controleur' => 'Users', 'company_id' => $company->id])
+                    ->first();
+                $userCode = $userCodeEntity ? ($userCodeEntity->prefixe . '1') : 'USR1';
+
+                $birthday = null;
+                if (!empty($data['yyyy']) && !empty($data['nn']) && !empty($data['dd'])) {
+                    $birthday = $data['yyyy'] . '-' . $data['nn'] . '-' . $data['dd'];
+                }
+
+                $userData = [
+                    'firstname' => ucfirst($data['fname']),
+                    'lastname' => ucfirst($data['lname']),
+                    'code' => $userCode,
+                    'username' => $data['uname'],
+                    'password' => $data['pword'],
+                    'email' => $data['email'] ?? null,
+                    'phone' => $data['phone'] ?? null,
+                    'birthday' => $birthday,
+                    'role_id' => 1, // Admin role
+                    'company_id' => $company->id,
+                    'statut' => 1,
+                    'app' => 0,
+                    'referral' => substr($data['uname'], 0, 4) . chr(rand(97, 122)) . chr(rand(97, 122)) . chr(rand(97, 122)) . chr(rand(97, 122)),
+                    'grpassword' => $data['pword']
+                ];
+
+                $user = $this->Users->newEntity($userData);
+                if ($this->Users->save($user)) {
+                    $this->Flash->success(__('Company and Admin user successfully created! Please log in.'));
+                    return $this->redirect(['controller' => 'Users', 'action' => 'login']);
+                } else {
+                    $this->Flash->error(__('Company saved but admin user could not be created. Please contact support.'));
+                }
+            } else {
+                $this->Flash->error(__('The company could not be saved. Please, try again.'));
             }
-            $this->Flash->error(__('The company could not be saved. Please, try again.'));
         }
         $this->set(compact('company'));
     }
@@ -156,6 +286,40 @@ class CompaniesController extends AppController
             $this->Flash->error(__('La société n`\'a pas pu être modifiée. Veuillez réessayer.'));
         }
         $this->set(compact('company'));
+    }
+
+    public function designer($documentType = 'facture')
+    {
+        $id = $this->Auth->user('company_id');
+        $company = $this->Companies->get($id);
+        
+        $templateFile = WWW_ROOT . 'files' . DS . 'templates' . DS . $id . '_' . $documentType . '_template.json';
+        $templateConfig = null;
+        if (file_exists($templateFile)) {
+            $templateConfig = file_get_contents($templateFile);
+        }
+        
+        $this->set(compact('company', 'templateConfig', 'documentType'));
+    }
+
+    public function saveTemplate($documentType = 'facture')
+    {
+        $this->request->allowMethod(['post']);
+        $id = $this->Auth->user('company_id');
+        $layoutData = $this->request->getData('layout');
+        
+        $dir = WWW_ROOT . 'files' . DS . 'templates';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+        
+        $file = $dir . DS . $id . '_' . $documentType . '_template.json';
+        file_put_contents($file, $layoutData);
+        
+        $this->autoRender = false;
+        $this->response = $this->response->withType('application/json');
+        echo json_encode(['success' => true]);
+        exit;
     }
 
     /**

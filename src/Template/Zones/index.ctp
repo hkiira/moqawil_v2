@@ -3,28 +3,13 @@ $this->extend('/Common/index');
 ?>
 
 <?php 
-    if($secteur){
-        $td= '<th>Code</th>
-                <th>Nom</th>
-                <th>Ville</th>
-                <th>Statut</th>
-                <th>Actions</th>';
-    }else{
-        $td= '<th>Code</th>
-                <th>Nom</th>
-                <th>Ville</th>
-                <th>Statut</th>
-                <th>Secteurs</th>';
-    }
+    $td = '<th style="width: 30px;"></th>
+           <th>Code</th>
+           <th>Nom</th>
+           <th>Ville</th>
+           <th>Statut</th>
+           <th>Actions</th>';
+    $this->assign('td', $td);
+    $this->assign('title', 'Gestion des Secteurs & Zones');
+    $this->assign('js', 'zones');
  ?>
-
-<?php 
-    $this->assign('td',$td);
-    if($secteur){
-        $this->assign('title', 'Liste des secteurs');
-        $this->assign('id','secteurs');
-    }else{
-        $this->assign('title', 'Liste des zones');
-    }
-    $this->assign('js','zones');
-?>

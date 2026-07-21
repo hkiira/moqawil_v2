@@ -206,3 +206,11 @@ Configure::write('CakePdf', array(
     'pageSize'=>'A4',
     'orientation' => 'L',
 ));
+
+// Global multi-tenant event listener to attach MultitenantBehavior to all tables that have company_id
+\Cake\Event\EventManager::instance()->on('Model.initialize', function (\Cake\Event\Event $event) {
+    $table = $event->getSubject();
+    if ($table->hasField('company_id')) {
+        $table->addBehavior('Multitenant');
+    }
+});

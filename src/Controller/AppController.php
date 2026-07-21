@@ -221,29 +221,82 @@ class AppController extends Controller
         //$this->loadComponent('Security');
     }
 
+    public function beforeFilter(Event $event)
+    {
+        parent::beforeFilter($event);
+
+        $controller = $this->request->getParam('controller');
+        $action = $this->request->getParam('action');
+
+        if (($controller === 'Users' && $action === 'login') || ($controller === 'Companies' && $action === 'add')) {
+            \App\Utility\TenantManager::setCurrentTenantId(null);
+        } else {
+            $user = $this->Auth->user();
+            if ($user && isset($user['company_id'])) {
+                \App\Utility\TenantManager::setCurrentTenantId($user['company_id']);
+
+                $this->loadModel('Companies');
+                $currentCompany = $this->Companies->find()->where(['id' => $user['company_id']])->first();
+                $this->set('currentCompany', $currentCompany);
+            } else {
+                \App\Utility\TenantManager::setCurrentTenantId(null);
+            }
+        }
+    }
+
+    public function beforeRender(Event $event)
+    {
+        parent::beforeRender($event);
+
+        if (isset($this->viewVars['currentCompany'])) {
+            $currentCompany = $this->viewVars['currentCompany'];
+            if (!empty($currentCompany->code)) {
+                $controller = $this->name;
+                $action = $this->request->getParam('action');
+                $companyCode = strtolower($currentCompany->code);
+
+                // If this is a PDF request, target the 'pdf' subdirectory
+                $isPdf = ($this->request->getParam('_ext') === 'pdf');
+                if ($isPdf) {
+                    $customTemplate = "Companies" . DS . $companyCode . DS . $controller . DS . 'pdf' . DS . $action;
+                } else {
+                    $customTemplate = "Companies" . DS . $companyCode . DS . $controller . DS . $action;
+                }
+
+                $fullPath = APP . 'Template' . DS . str_replace('/', DS, $customTemplate) . '.ctp';
+
+                if (file_exists($fullPath)) {
+                    $this->viewBuilder()->setTemplate($customTemplate);
+                }
+            }
+        }
+    }
+
     public function isAuthorized($user)
     {
-        /* if(!is_null($this->Auth->user('id'))){
-             $itsokey=0;
-             foreach ($this->Auth->user('accesses') as $key=>$access) {
-                 if ($access['controller']['title']==$this->request->getParam('controller')) {
-                     foreach ($access['actions'] as $key1=>$action) {
+        // 1. Super Admins (role_id = 1) from the master company (company_id = 1) can access everything
+       /* if (isset($user['role_id']) && $user['role_id'] == 1 && isset($user['company_id']) && $user['company_id'] == 1) {
+            return true;
+        }
 
-                         if ($this->request->getParam('action')==$action['title']) {
-                             $itsokey=1;
-                         }
-                     }
-                 }
-             }
+        if (!empty($user['accesses'])) {
+            $controller = $this->request->getParam('controller');
+            $action = $this->request->getParam('action');
 
-             if($itsokey==0){
-                 return false;
-             }else{
-                 return true;
-             }
-         }else{
-             return false;
-         }*/
+            foreach ($user['accesses'] as $access) {
+                if (isset($access['controller']['title']) && $access['controller']['title'] === $controller) {
+                    if (isset($access['actions'])) {
+                        foreach ($access['actions'] as $act) {
+                            if (isset($act['title']) && $act['title'] === $action && isset($act['authorised']) && $act['authorised'] == 1) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;*/
         return true;
     }
 }

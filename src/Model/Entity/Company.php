@@ -71,6 +71,7 @@ class Company extends Entity
         'modified' => true,
         'statut' => true,
         'code' => true,
+        'code_prefixes' => true,
         'accesroles' => true,
         'accesses' => true,
         'accesusers' => true,
@@ -92,4 +93,23 @@ class Company extends Entity
         'whuserproducts' => true,
         'companycodes' => true,
     ];
+
+    protected function _setCodePrefixes($value)
+    {
+        if (is_array($value)) {
+            return json_encode($value);
+        }
+        return $value;
+    }
+
+    protected function _getCodePrefixes($value)
+    {
+        if (empty($value)) {
+            return [];
+        }
+        if (is_string($value)) {
+            return json_decode($value, true);
+        }
+        return $value;
+    }
 }

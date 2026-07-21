@@ -9,9 +9,9 @@ use App\Controller\AppController;
  * @property \App\Model\Table\WarehousesTable $Warehouses
  *
  * @method \App\Model\Entity\Warehouse[]|\Cake\Datasource\ResultSetInterface paginate($object = null, array $settings = [])
- 
- 0: Innactif
- 1: actif
+  
+  0: Innactif
+  1: actif
 
  */
 class WarehousesController extends AppController
@@ -23,15 +23,16 @@ class WarehousesController extends AppController
      */
     public function index($warehouseid=null)
     {
+        $whtypes = $this->_getWhtypeIds();
         if($warehouseid){
             $warehouses = $this->Warehouses->find('all')
             ->contain(['Subwarehouses','Pofsales.Pofsusers.Users.Roles'])
-            ->where(['Warehouses.company_id'=>$this->Auth->user('company_id'),'Warehouses.whtype_id'=>3,'Warehouses.warehouse_id'=>$warehouseid])
+            ->where(['Warehouses.company_id'=>$this->Auth->user('company_id'),'Warehouses.whtype_id'=>$whtypes['AU'],'Warehouses.warehouse_id'=>$warehouseid])
             ->group('Warehouses.id');
         }else{
            $warehouses = $this->Warehouses->find('all')
             ->contain(['Subwarehouses'])
-            ->where(['Warehouses.company_id'=>$this->Auth->user('company_id'),'Warehouses.whtype_id'=>1])
+            ->where(['Warehouses.company_id'=>$this->Auth->user('company_id'),'Warehouses.whtype_id'=>$whtypes['DP']])
             ->group('Warehouses.id'); 
         }
         $warehouses = $this->paginate($warehouses);
@@ -51,32 +52,41 @@ class WarehousesController extends AppController
             return $this->redirect(['action' => 'index']);
         }
         $categories = $this->Warehouses->Whproducts->Packs->Categories->find('all')->where(['company_id'=>$this->Auth->user('company_id')]);
-        $warehouseN=$this->Warehouses->find('all')->where(['warehouse_id'=>$warehouse_id,'whnature_id'=>1,'whtype_id'=>2])->last();
+        
+        $whtypes = $this->_getWhtypeIds();
+        $whnatures = $this->_getWhnatureIds();
+        $warehouseN=$this->Warehouses->find('all')->where(['warehouse_id'=>$warehouse_id,'whnature_id'=>$whnatures['NR'],'whtype_id'=>$whtypes['SD']])->last();
 
         //récuperer le entrepot
         $packselects=[];
         foreach ($categories as $key => $category) {
             $this->loadModel('Packs');
             $packs=$this->Packs->find('all')->contain(['Packunites.Unites.Parentunites'])->where(['Packs.category_id'=>$category->id,'Packs.statut'=>1]);
-            $packselect=[];
-            foreach ($packs as $key => $pack) {
-                //récuperer les produits de l'entrepot
+            
+            foreach ($packs as $key1 => $pack) {
                 $whproduct=$this->Warehouses->Whproducts->find('all')->where(['item_id'=>$pack->id,'item_type'=>'Pack','warehouse_id'=>$warehouseN->id])->last();
-                foreach ($pack->packunites as $key2 => $packunite) {
-
-                    $packselect[$pack->id]['id']=$whproduct->id;
-                    $packselect[$pack->id]['title']=$pack->title.' ('.$packunite->unite->abrev.')';
-                    $packselect[$pack->id]['quantity']=intVal($whproduct->quantity);
-                    $packselect[$pack->id]['qtepercs']=$packunite->quantity;
-                    $packselect[$pack->id]['carsac']=$packunite->unite->abrev;
-                    $packselect[$pack->id]['piecekg']=$packunite->unite->parentunite->abrev;
+                if ($whproduct) {
+                    
+                    $packselects[$category->title][$key1]['id']=$pack->id;
+                    $packselects[$category->title][$key1]['title']=$pack->title;
+                    $packselects[$category->title][$key1]['quantity']=$whproduct->quantity;
+                    $packselects[$category->title][$key1]['whproduct_id']=$whproduct->id;
+                    
+                    if (!empty($pack->packunites)) {
+                        $packselects[$category->title][$key1]['abrev']=$pack->packunites[0]->unite->abrev;
+                        $packselects[$category->title][$key1]['abrevp']=$pack->packunites[0]->unite->parentunite->abrev;
+                        $packselects[$category->title][$key1]['qtepersac']=$pack->packunites[0]->quantity;
+                    }else {
+                        $packselects[$category->title][$key1]['abrev']='';
+                        $packselects[$category->title][$key1]['abrevp']='';
+                        $packselects[$category->title][$key1]['qtepersac']=1;
+                    }
                 }
             }
-            $packselected=$packselect;
-            $packselects[]=['category'=>$category->title,'packs'=>$packselected];
         }
-        $this->set(compact('packselects','warehouse'));
+        $this->set(compact('warehouse','packselects','warehouse_id'));
     }
+
     /**
      * View method
      *
@@ -87,13 +97,15 @@ class WarehousesController extends AppController
     public function view($id = null)
     {
         $getwh=$this->Warehouses->get($id);
-        if ($getwh->whtype_id==1) {
+        $whtypes = $this->_getWhtypeIds();
+
+        if ($getwh->whtype_id == $whtypes['DP']) {
             $warehouse = $this->Warehouses->get($id, [
-                'contain' => ['Adresses.Cities','Whnatures', 'Whtypes','Subwarehouses'=>function($q){ return $q->where(['Subwarehouses.whtype_id'=>2]);},'Subwarehouses.Whproducts'],
+                'contain' => ['Adresses.Cities','Whnatures', 'Whtypes','Subwarehouses'=>function($q)use($whtypes){ return $q->where(['Subwarehouses.whtype_id'=>$whtypes['SD']]);},'Subwarehouses.Whproducts'],
             ]);
         }else {
             $warehouse = $this->Warehouses->get($id, [
-                'contain' => ['Pofsales','Whnatures', 'Whtypes','Subwarehouses'=>function($q){ return $q->where(['Subwarehouses.whtype_id'=>2]);},'Subwarehouses.Whproducts'],
+                'contain' => ['Pofsales','Whnatures', 'Whtypes','Subwarehouses'=>function($q)use($whtypes){ return $q->where(['Subwarehouses.whtype_id'=>$whtypes['SD']]);},'Subwarehouses.Whproducts'],
             ]);
         }
         
@@ -118,6 +130,14 @@ class WarehousesController extends AppController
     public function add($entrepot=null)
     {
         $warehouse = $this->Warehouses->newEntity();
+
+        $whtypes = $this->_getWhtypeIds();
+        $whnatures = $this->_getWhnatureIds();
+
+        $this->loadModel('Pofstypes');
+        $pofstype = $this->Pofstypes->find('all')->where(['code' => 'VI', 'company_id' => $this->Auth->user('company_id')])->first();
+        $pofstypeId = $pofstype ? $pofstype->id : 3;
+
         if ($entrepot) {
             debug($this->request->getData());
             die();
@@ -132,7 +152,7 @@ class WarehousesController extends AppController
                 $code=$this->Warehouses->Companies->Companycodes->find('all')->where(['controleur'=>'Subwarehouses','company_id'=>$this->Auth->user('company_id')])->last();
                 $warehouse->code=$code->prefixe.($code->compteur+1);
                 $warehouse->company_id=$this->Auth->user('company_id');
-                $warehouse->whtype_id=2;
+                $warehouse->whtype_id=$whtypes['SD'];
                 $warehouse->warehouse_id=$entrepot;
                 if ($this->Warehouses->save($warehouse)) {
                     $code->compteur=$code->compteur+1;
@@ -140,7 +160,7 @@ class WarehousesController extends AppController
                         $pofsale=$this->Warehouses->Pofsales->newEntity();
                         $pofsale->warehouse_id=$warehouse->id;
                         $pofsale->company_id=$warehouse->company_id;
-                        $pofsale->pofstype_id=3;
+                        $pofsale->pofstype_id=$pofstypeId;
                         $pofsale->title=$warehouse->title;
                         $codepofsale=$this->Warehouses->Companies->Companycodes->find('all')->where(['controleur'=>'Pofsales','company_id'=>$this->Auth->user('company_id')])->last();
                         $pofsale->code=$codepofsale->prefixe.($codepofsale->compteur+1);
@@ -156,11 +176,11 @@ class WarehousesController extends AppController
             }
             $iswarehouse=$this->Warehouses->get($entrepot,['contain'=>['Adresses.Cities']]);
             $depots=$this->Warehouses->find('all')->where(['warehouse_id'=>$iswarehouse->id,'company_id'=>$this->Auth->user('company_id')]);
-            $whnatures=$this->Warehouses->Whnatures->find('list');
+            $whnatures_list=$this->Warehouses->Whnatures->find('list');
             foreach ($depots as $key => $depot) {
-                $whnatures->where(['id !='=>$depot->whnature_id]);
+                $whnatures_list->where(['id !='=>$depot->whnature_id]);
             }
-            $this->set(compact('warehouse','entrepot','iswarehouse','whnatures','depots'));
+            $this->set(compact('warehouse','entrepot','iswarehouse','whnatures_list','depots'));
             
         }else{
             
@@ -175,24 +195,29 @@ class WarehousesController extends AppController
                 }
                 $code=$this->Warehouses->Companies->Companycodes->find('all')->where(['controleur'=>'Warehouses','company_id'=>$this->Auth->user('company_id')])->last();
                 $datas['company_id']=$this->Auth->user('company_id');
-                $datas['whnature_id']=1;
-                $datas['whtype_id']=1;
+                $datas['whnature_id']=$whnatures['NR'];
+                $datas['whtype_id']=$whtypes['DP'];
                 $datas['pofsales'][0]['title']=$datas['title'];
                 $datas['pofsales'][0]['code']=$code->prefixe.($code->compteur+1);
-                $datas['pofsales'][0]['pofstype_id']=3;
+                $datas['pofsales'][0]['pofstype_id']=$pofstypeId;
                 $datas['pofsales'][0]['company_id']=$this->Auth->user('company_id');
-                
-                $products=$this->Warehouses->Whproducts->Products->find('all')->where(['company_id'=>$this->Auth->user('company_id')]);
+                $this->loadModel('Products');
+                $products=$this->Products->find('all')->where(['company_id'=>$this->Auth->user('company_id')]);
                 $whproducts=[];
                 foreach ($products as $key => $product) {
-                    $whproducts[$key]=['company_id'=>$this->Auth->user('company_id'),'product_id'=>$product->id,'quantity'=>0];
+                    $whproducts[$key]=[
+                        'company_id'=>$this->Auth->user('company_id'),
+                        'item_id'=>$product->id,
+                        'item_type'=>'Product',
+                        'quantity'=>0
+                    ];
                 }
-                $whnatures=$this->Warehouses->Whnatures->find('all');
+                $whnatures_entities=$this->Warehouses->Whnatures->find('all');
                 $subwarehouses=[];
                 $subwarehousecode=$this->Warehouses->Companies->Companycodes->find('all')->where(['controleur'=>'Subwarehouses','company_id'=>$this->Auth->user('company_id')])->last();
                 $inc=1;
-                foreach ($whnatures as $key => $whnature) {
-                    $subwarehouses[$key]=['whtype_id'=>2,'whnature_id'=>$whnature->id,'title'=>$whnature->title.'-'.$code->prefixe.($code->compteur+1),'code'=>$subwarehousecode->compteur+1,'company_id'=>$this->Auth->user('company_id'),'whproducts'=>$whproducts];
+                foreach ($whnatures_entities as $key => $whnature_item) {
+                    $subwarehouses[$key]=['whtype_id'=>$whtypes['SD'],'whnature_id'=>$whnature_item->id,'title'=>$whnature_item->title.'-'.$code->prefixe.($code->compteur+1),'code'=>$subwarehousecode->compteur+1,'company_id'=>$this->Auth->user('company_id'),'whproducts'=>$whproducts];
                     $inc++;
                 }
                 $datas['subwarehouses']=$subwarehouses;
@@ -205,7 +230,8 @@ class WarehousesController extends AppController
                     $this->Flash->success(__('Le dépôt a été enregistré.'));
                     return $this->redirect(['action' => 'index']);
                 }
-                $this->Flash->error(__('L\'entrepôt n\'a pas pu être enregistré. Veuillez réessayer.'));
+                $errors = $warehouse->getErrors();
+                $this->Flash->error(__('L\'entrepôt n\'a pas pu être enregistré. Erreurs: ' . json_encode($errors)));
             }    
             $cities = $this->Warehouses->Adresses->Cities->find('list');
             $this->set(compact('warehouse', 'cities','entrepot'));
@@ -239,26 +265,6 @@ class WarehousesController extends AppController
         $this->set(compact('warehouse', 'whnatures', 'whtypes'));
     }
 
-    /**
-     * Delete method
-     *
-     * @param string|null $id Warehouse id.
-     * @return \Cake\Http\Response|null Redirects to index.
-     * @throws \Cake\Datasource\Exception\RecordNotFoundException When record not found.
-     
-    public function delete($id = null)
-    {
-        $this->request->allowMethod(['post', 'delete']);
-        $warehouse = $this->Warehouses->get($id);
-        if ($this->Warehouses->delete($warehouse)) {
-            $this->Flash->success(__('The warehouse has been deleted.'));
-        } else {
-            $this->Flash->error(__('The warehouse could not be deleted. Please, try again.'));
-        }
-
-        return $this->redirect(['action' => 'index']);
-    }
-    */
     public function search($id)
     {  
 
@@ -300,7 +306,9 @@ class WarehousesController extends AppController
         $sel->select(['count' => $sel->func()->count('*')]);
         $totalRecords = ($sel->last()==null) ? 0 : $sel->last()->count ;
 
-        $empQuery=$this->Warehouses->find('all')->contain(['Subwarehouses'=>function($q)use($id){return $q->where(['Subwarehouses.warehouse_id'=>$id,'Subwarehouses.whtype_id'=>2]);},'Subwarehouses.Whproducts.Packs'])->order([$columnName => $columnSortOrder]);
+        $whtypes = $this->_getWhtypeIds();
+        $subwhtypeId = $whtypes['SD'];
+        $empQuery=$this->Warehouses->find('all')->contain(['Subwarehouses'=>function($q)use($id, $subwhtypeId){return $q->where(['Subwarehouses.warehouse_id'=>$id,'Subwarehouses.whtype_id'=>$subwhtypeId]);},'Subwarehouses.Whproducts.Packs'])->order([$columnName => $columnSortOrder]);
         $empQuery->where(['Warehouses.id'=>$id,'Warehouses.company_id'=>$this->Auth->user('company_id')]);
         if ($row==0) {
             $empQuery->limit($rowperpage);
@@ -368,5 +376,44 @@ class WarehousesController extends AppController
         $this->autoRender = false; 
         echo json_encode($response);
         exit;
+    }
+
+    protected function _getWhtypeIds()
+    {
+        $this->loadModel('Whtypes');
+        $types = $this->Whtypes->find('all')
+            ->where(['company_id' => $this->Auth->user('company_id')])
+            ->toArray();
+            
+        $map = [
+            'DP' => 1,
+            'SD' => 2,
+            'AU' => 3,
+            'MG' => 4
+        ];
+        
+        foreach ($types as $t) {
+            $map[$t->code] = $t->id;
+        }
+        
+        return $map;
+    }
+
+    protected function _getWhnatureIds()
+    {
+        $this->loadModel('Whnatures');
+        $natures = $this->Whnatures->find('all')
+            ->where(['company_id' => $this->Auth->user('company_id')])
+            ->toArray();
+            
+        $map = [
+            'NR' => 1
+        ];
+        
+        foreach ($natures as $n) {
+            $map[$n->code] = $n->id;
+        }
+        
+        return $map;
     }
 }

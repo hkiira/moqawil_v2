@@ -79,7 +79,7 @@ button:hover {
 </style>
 <div class="card-body">
     <div class="row">
-<form id="regForm" action="/action_page.php">
+<form id="regForm" action="<?= $this->Url->build(['controller' => 'Companies', 'action' => 'add']) ?>" method="post">
   <div class="tab">
     <div class="col-xl-2"></div>
         <div class="col-xl-8">

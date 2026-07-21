@@ -1,152 +1,186 @@
-<?php
-/**
- * @var \App\View\AppView $this
- * @var \App\Model\Entity\Zone $zone
- */
+<?php   
+$this->extend('/Common/crud');
 ?>
-<nav class="large-3 medium-4 columns" id="actions-sidebar">
-    <ul class="side-nav">
-        <li class="heading"><?= __('Actions') ?></li>
-        <li><?= $this->Html->link(__('Edit Zone'), ['action' => 'edit', $zone->id]) ?> </li>
-        <li><?= $this->Form->postLink(__('Delete Zone'), ['action' => 'delete', $zone->id], ['confirm' => __('Are you sure you want to delete # {0}?', $zone->id)]) ?> </li>
-        <li><?= $this->Html->link(__('List Zones'), ['action' => 'index']) ?> </li>
-        <li><?= $this->Html->link(__('New Zone'), ['action' => 'add']) ?> </li>
-        <li><?= $this->Html->link(__('List Cities'), ['controller' => 'Cities', 'action' => 'index']) ?> </li>
-        <li><?= $this->Html->link(__('New City'), ['controller' => 'Cities', 'action' => 'add']) ?> </li>
-        <li><?= $this->Html->link(__('List Companies'), ['controller' => 'Companies', 'action' => 'index']) ?> </li>
-        <li><?= $this->Html->link(__('New Company'), ['controller' => 'Companies', 'action' => 'add']) ?> </li>
-        <li><?= $this->Html->link(__('List Zones'), ['controller' => 'Zones', 'action' => 'index']) ?> </li>
-        <li><?= $this->Html->link(__('New Zone'), ['controller' => 'Zones', 'action' => 'add']) ?> </li>
-        <li><?= $this->Html->link(__('List Customers'), ['controller' => 'Customers', 'action' => 'index']) ?> </li>
-        <li><?= $this->Html->link(__('New Customer'), ['controller' => 'Customers', 'action' => 'add']) ?> </li>
-    </ul>
-</nav>
-<div class="zones view large-9 medium-8 columns content">
-    <h3><?= h($zone->title) ?></h3>
-    <table class="vertical-table">
-        <tr>
-            <th scope="row"><?= __('Code') ?></th>
-            <td><?= h($zone->code) ?></td>
-        </tr>
-        <tr>
-            <th scope="row"><?= __('Title') ?></th>
-            <td><?= h($zone->title) ?></td>
-        </tr>
-        <tr>
-            <th scope="row"><?= __('City') ?></th>
-            <td><?= $zone->has('city') ? $this->Html->link($zone->city->title, ['controller' => 'Cities', 'action' => 'view', $zone->city->id]) : '' ?></td>
-        </tr>
-        <tr>
-            <th scope="row"><?= __('Company') ?></th>
-            <td><?= $zone->has('company') ? $this->Html->link($zone->company->name, ['controller' => 'Companies', 'action' => 'view', $zone->company->id]) : '' ?></td>
-        </tr>
-        <tr>
-            <th scope="row"><?= __('Id') ?></th>
-            <td><?= $this->Number->format($zone->id) ?></td>
-        </tr>
-        <tr>
-            <th scope="row"><?= __('Zone Id') ?></th>
-            <td><?= $this->Number->format($zone->zone_id) ?></td>
-        </tr>
-        <tr>
-            <th scope="row"><?= __('Statut') ?></th>
-            <td><?= $this->Number->format($zone->statut) ?></td>
-        </tr>
-        <tr>
-            <th scope="row"><?= __('Created') ?></th>
-            <td><?= h($zone->created) ?></td>
-        </tr>
-        <tr>
-            <th scope="row"><?= __('Modified') ?></th>
-            <td><?= h($zone->modified) ?></td>
-        </tr>
-    </table>
-    <div class="related">
-        <h4><?= __('Related Zones') ?></h4>
-        <?php if (!empty($zone->zones)): ?>
-        <table cellpadding="0" cellspacing="0">
-            <tr>
-                <th scope="col"><?= __('Id') ?></th>
-                <th scope="col"><?= __('Code') ?></th>
-                <th scope="col"><?= __('Title') ?></th>
-                <th scope="col"><?= __('Zone Id') ?></th>
-                <th scope="col"><?= __('City Id') ?></th>
-                <th scope="col"><?= __('Created') ?></th>
-                <th scope="col"><?= __('Modified') ?></th>
-                <th scope="col"><?= __('Statut') ?></th>
-                <th scope="col"><?= __('Company Id') ?></th>
-                <th scope="col" class="actions"><?= __('Actions') ?></th>
-            </tr>
-            <?php foreach ($zone->zones as $zones): ?>
-            <tr>
-                <td><?= h($zones->id) ?></td>
-                <td><?= h($zones->code) ?></td>
-                <td><?= h($zones->title) ?></td>
-                <td><?= h($zones->zone_id) ?></td>
-                <td><?= h($zones->city_id) ?></td>
-                <td><?= h($zones->created) ?></td>
-                <td><?= h($zones->modified) ?></td>
-                <td><?= h($zones->statut) ?></td>
-                <td><?= h($zones->company_id) ?></td>
-                <td class="actions">
-                    <?= $this->Html->link(__('View'), ['controller' => 'Zones', 'action' => 'view', $zones->id]) ?>
-                    <?= $this->Html->link(__('Edit'), ['controller' => 'Zones', 'action' => 'edit', $zones->id]) ?>
-                    <?= $this->Form->postLink(__('Delete'), ['controller' => 'Zones', 'action' => 'delete', $zones->id], ['confirm' => __('Are you sure you want to delete # {0}?', $zones->id)]) ?>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-        </table>
-        <?php endif; ?>
+<?php 
+    $this->assign('title', 'Détails : ' . h($zone->title) . ' (' . h($zone->code) . ')');
+    $this->assign('subtitle', 'Consultez les caractéristiques, le statut et les contours géographiques.');
+    $this->assign('edit', '<a href="' . $this->Url->build(['action' => 'edit', $zone->id]) . '" class="btn btn-primary font-weight-bolder shadow-sm"><i class="la la-edit"></i> Modifier</a>');
+?>
+
+<!-- Leaflet Styles -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<div class="card-body p-6">
+    <!-- Section 1: Information Card -->
+    <div class="card card-custom card-border mb-6">
+        <div class="card-header bg-light-primary border-0 min-h-50px px-5">
+            <div class="card-title">
+                <span class="card-icon">
+                    <i class="flaticon2-information text-primary font-size-h5"></i>
+                </span>
+                <h5 class="card-label text-primary font-weight-bolder font-size-h6 mb-0">Informations Générales</h5>
+            </div>
+        </div>
+        <div class="card-body p-6">
+            <div class="row">
+                <div class="col-md-3 mb-4">
+                    <span class="text-muted font-weight-bold d-block mb-1">Type</span>
+                    <?php if ($zone->zone_id): ?>
+                        <span class="badge badge-light-success font-weight-bolder p-2">
+                            <i class="flaticon2-paper-plane text-success mr-1"></i> Sous-Zone
+                        </span>
+                    <?php else: ?>
+                        <span class="badge badge-light-primary font-weight-bolder p-2">
+                            <i class="flaticon2-location text-primary mr-1"></i> Secteur Principal
+                        </span>
+                    <?php endif ?>
+                </div>
+
+                <div class="col-md-3 mb-4">
+                    <span class="text-muted font-weight-bold d-block mb-1">Code</span>
+                    <span class="font-weight-bolder text-dark font-size-h6"><?= h($zone->code) ?></span>
+                </div>
+
+                <div class="col-md-3 mb-4">
+                    <span class="text-muted font-weight-bold d-block mb-1">Nom</span>
+                    <span class="font-weight-bolder text-dark font-size-h6"><?= h($zone->title) ?></span>
+                </div>
+
+                <div class="col-md-3 mb-4">
+                    <span class="text-muted font-weight-bold d-block mb-1">Statut</span>
+                    <?php if ($zone->statut == 1): ?>
+                        <span class="label label-lg label-light-success label-inline font-weight-bold">Actif</span>
+                    <?php else: ?>
+                        <span class="label label-lg label-light-danger label-inline font-weight-bold">Inactif</span>
+                    <?php endif ?>
+                </div>
+
+                <div class="col-md-3 mb-4 mb-md-0">
+                    <span class="text-muted font-weight-bold d-block mb-1"><?= $zone->zone_id ? 'Secteur Parent' : 'Ville' ?></span>
+                    <span class="font-weight-bolder text-dark font-size-lg">
+                        <?php 
+                            if ($zone->zone_id && isset($zone->parent_zone)) {
+                                echo h($zone->parent_zone->title);
+                            } elseif ($zone->city) {
+                                echo h($zone->city->title);
+                            } else {
+                                echo '--';
+                            }
+                        ?>
+                    </span>
+                </div>
+
+                <div class="col-md-3 mb-4 mb-md-0">
+                    <span class="text-muted font-weight-bold d-block mb-1">Date de Création</span>
+                    <span class="font-weight-bolder text-dark-75"><?= $zone->created ? $zone->created->format('d/m/Y H:i') : '--' ?></span>
+                </div>
+
+                <div class="col-md-3 mb-4 mb-md-0">
+                    <span class="text-muted font-weight-bold d-block mb-1">Dernière Modification</span>
+                    <span class="font-weight-bolder text-dark-75"><?= $zone->modified ? $zone->modified->format('d/m/Y H:i') : '--' ?></span>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="related">
-        <h4><?= __('Related Customers') ?></h4>
-        <?php if (!empty($zone->customers)): ?>
-        <table cellpadding="0" cellspacing="0">
-            <tr>
-                <th scope="col"><?= __('Id') ?></th>
-                <th scope="col"><?= __('Code') ?></th>
-                <th scope="col"><?= __('Name') ?></th>
-                <th scope="col"><?= __('Phone') ?></th>
-                <th scope="col"><?= __('Adresse') ?></th>
-                <th scope="col"><?= __('Zone Id') ?></th>
-                <th scope="col"><?= __('Customertype Id') ?></th>
-                <th scope="col"><?= __('Ice') ?></th>
-                <th scope="col"><?= __('Latitude') ?></th>
-                <th scope="col"><?= __('Longitude') ?></th>
-                <th scope="col"><?= __('Created') ?></th>
-                <th scope="col"><?= __('Modified') ?></th>
-                <th scope="col"><?= __('Statut') ?></th>
-                <th scope="col"><?= __('Company Id') ?></th>
-                <th scope="col"><?= __('Photo') ?></th>
-                <th scope="col"><?= __('Photo Dir') ?></th>
-                <th scope="col" class="actions"><?= __('Actions') ?></th>
-            </tr>
-            <?php foreach ($zone->customers as $customers): ?>
-            <tr>
-                <td><?= h($customers->id) ?></td>
-                <td><?= h($customers->code) ?></td>
-                <td><?= h($customers->name) ?></td>
-                <td><?= h($customers->phone) ?></td>
-                <td><?= h($customers->adresse) ?></td>
-                <td><?= h($customers->zone_id) ?></td>
-                <td><?= h($customers->customertype_id) ?></td>
-                <td><?= h($customers->ice) ?></td>
-                <td><?= h($customers->latitude) ?></td>
-                <td><?= h($customers->longitude) ?></td>
-                <td><?= h($customers->created) ?></td>
-                <td><?= h($customers->modified) ?></td>
-                <td><?= h($customers->statut) ?></td>
-                <td><?= h($customers->company_id) ?></td>
-                <td><?= h($customers->photo) ?></td>
-                <td><?= h($customers->photo_dir) ?></td>
-                <td class="actions">
-                    <?= $this->Html->link(__('View'), ['controller' => 'Customers', 'action' => 'view', $customers->id]) ?>
-                    <?= $this->Html->link(__('Edit'), ['controller' => 'Customers', 'action' => 'edit', $customers->id]) ?>
-                    <?= $this->Form->postLink(__('Delete'), ['controller' => 'Customers', 'action' => 'delete', $customers->id], ['confirm' => __('Are you sure you want to delete # {0}?', $customers->id)]) ?>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-        </table>
-        <?php endif; ?>
+
+    <!-- Section 2: Carte de Délimitation -->
+    <div class="card card-custom card-border mb-6">
+        <div class="card-header bg-light-info border-0 min-h-50px px-5">
+            <div class="card-title">
+                <span class="card-icon">
+                    <i class="flaticon2-map text-info font-size-h5"></i>
+                </span>
+                <h5 class="card-label text-info font-weight-bolder font-size-h6 mb-0">Carte des Limites Géographiques</h5>
+            </div>
+        </div>
+        <div class="card-body p-6">
+            <div id="view-boundary-map" style="height: 400px; border-radius: 0.65rem; border: 1px solid #ebedf3; box-shadow: 0 0 10px rgba(0,0,0,0.03);"></div>
+        </div>
     </div>
+
+    <!-- Section 3: Sous-Zones Rattachées (If Secteur) -->
+    <?php if (!$zone->zone_id && !empty($zone->zones)): ?>
+        <div class="card card-custom card-border">
+            <div class="card-header bg-light-secondary border-0 min-h-50px px-5">
+                <div class="card-title">
+                    <span class="card-icon">
+                        <i class="flaticon2-paper-plane text-dark font-size-h5"></i>
+                    </span>
+                    <h5 class="card-label text-dark font-weight-bolder font-size-h6 mb-0">Sous-Zones Rattachées (<?= count($zone->zones) ?>)</h5>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-head-custom table-vertical-center mb-0">
+                        <thead>
+                            <tr class="bg-light">
+                                <th class="pl-6">Code</th>
+                                <th>Nom de la Zone</th>
+                                <th>Statut</th>
+                                <th class="pr-6 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($zone->zones as $child): ?>
+                                <tr>
+                                    <td class="pl-6 font-weight-bolder text-dark"><?= h($child->code) ?></td>
+                                    <td><?= h($child->title) ?></td>
+                                    <td>
+                                        <?php if ($child->statut == 1): ?>
+                                            <span class="label label-inline label-light-success font-weight-bold">Actif</span>
+                                        <?php else: ?>
+                                            <span class="label label-inline label-light-danger font-weight-bold">Inactif</span>
+                                        <?php endif ?>
+                                    </td>
+                                    <td class="pr-6 text-right">
+                                        <a href="<?= $this->Url->build(['action' => 'view', $child->id]) ?>" class="btn btn-sm btn-light-primary font-weight-bolder">
+                                            Voir
+                                        </a>
+                                        <a href="<?= $this->Url->build(['action' => 'edit', $child->id]) ?>" class="btn btn-sm btn-light-warning font-weight-bolder ml-1">
+                                            Modifier
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    <?php endif ?>
 </div>
+
+<!-- Leaflet Scripts -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<?= $this->Html->scriptStart(['block'=>'script_bottom']) ?>
+$(document).ready(function() {
+    var map = L.map('view-boundary-map').setView([33.5731, -7.5898], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Fetch and render zone coordinates
+    $.ajax({
+        url: '<?= $this->Url->build(['controller' => 'Zones', 'action' => 'sectorCoords', $zone->id]) ?>',
+        type: 'GET',
+        dataType: 'json',
+        success: function(coords) {
+            if (coords && coords.length > 0) {
+                var latlngs = [];
+                $.each(coords, function(i, c) {
+                    latlngs.push(L.latLng(c[0], c[1]));
+                });
+                var poly = L.polygon(latlngs, {
+                    color: '#3699FF',
+                    weight: 3,
+                    fillColor: '#3699FF',
+                    fillOpacity: 0.25
+                }).addTo(map);
+
+                map.fitBounds(poly.getBounds());
+            }
+        }
+    });
+});
+<?= $this->Html->scriptEnd(); ?>

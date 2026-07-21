@@ -74,6 +74,11 @@ class ZonesTable extends Table
         $this->hasMany('Zoneusers', [
             'foreignKey' => 'zone_id',
         ]);
+        $this->hasMany('ZoneCoordinates', [
+            'foreignKey' => 'zone_id',
+            'dependent' => true,
+            'cascadeCallbacks' => true,
+        ]);
     }
 
     /**

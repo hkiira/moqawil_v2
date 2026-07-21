@@ -34,6 +34,8 @@ if ($ordertypeid == 2) {
         <div class="col-lg-6">
             <div class="d-flex align-items-center justify-content-lg-end">
                 <div class="flex-grow-1 mr-4" style="max-width: 450px;">
+                    <?= $this->Form->hidden('latitude', ['id' => 'latitude']); ?>
+                    <?= $this->Form->hidden('longitude', ['id' => 'longitude']); ?>
                     <?= $this->Form->control('customer_id', [
                         'class' => 'select2 form-control form-control-solid',
                         'label' => false,
@@ -190,4 +192,5 @@ if ($ordertypeid == 2) {
         }
     );
 <?= $this->Html->scriptEnd(); ?>
+<?= $this->Html->script('/js/gps.js', ['block' => 'script_bottom']) ?>
 

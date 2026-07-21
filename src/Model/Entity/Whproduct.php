@@ -37,35 +37,50 @@ class Whproduct extends Entity
     protected $_accessible = [
         'item_id' => true,
         'item_type' => true,
+        'pack_id' => true,
+        'product_id' => true,
         'warehouse_id' => true,
         'quantity' => true,
         'created' => true,
         'modified' => true,
         'statut' => true,
         'company_id' => true,
-        // 'product' and 'pack' are not direct fields to be mass-assigned here.
-        // They are loaded via associations or virtual properties.
-        'warehouse' => true, // Assuming this is a loaded association
-        'company' => true,   // Assuming this is a loaded association
-        'whuserproducts' => true, // Assuming this is a loaded association
+        'warehouse' => true,
+        'company' => true,
+        'whuserproducts' => true,
     ];
 
-    // Optional: Add virtual properties or methods to get the specific item (Pack or Product)
-    // protected function _getPack()
-    // {
-    //     if ($this->item_type === 'Pack' && $this->item_id) {
-    //         $packsTable = \Cake\ORM\TableRegistry::getTableLocator()->get('Packs');
-    //         return $packsTable->findById($this->item_id)->first();
-    //     }
-    //     return null;
-    // }
+    protected function _getPackId()
+    {
+        if ($this->item_type === 'Pack') {
+            return $this->item_id;
+        }
+        return isset($this->_properties['pack_id']) ? $this->_properties['pack_id'] : null;
+    }
 
-    // protected function _getProduct()
-    // {
-    //     if ($this->item_type === 'Product' && $this->item_id) {
-    //         $productsTable = \Cake\ORM\TableRegistry::getTableLocator()->get('Products');
-    //         return $productsTable->findById($this->item_id)->first();
-    //     }
-    //     return null;
-    // }
+    protected function _setPackId($value)
+    {
+        if ($value !== null) {
+            $this->set('item_id', $value);
+            $this->set('item_type', 'Pack');
+        }
+        return $value;
+    }
+
+    protected function _getProductId()
+    {
+        if ($this->item_type === 'Product') {
+            return $this->item_id;
+        }
+        return isset($this->_properties['product_id']) ? $this->_properties['product_id'] : null;
+    }
+
+    protected function _setProductId($value)
+    {
+        if ($value !== null) {
+            $this->set('item_id', $value);
+            $this->set('item_type', 'Product');
+        }
+        return $value;
+    }
 }

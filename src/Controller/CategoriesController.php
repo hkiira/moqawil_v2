@@ -238,24 +238,32 @@ class CategoriesController extends AppController
                 ];
             }
 
+            if (isset($datas['type_cat']) && $datas['type_cat'] === 'famille') {
+                $datas['category_id'] = null;
+            }
+
             $category = $this->Categories->patchEntity($category, $datas, ['Associated' => 'Sliders']);
 
-            if ($datas['statut'] == 'on') {
+            if (isset($datas['statut']) && $datas['statut'] == 'on') {
                 $category->statut = 1;
             } else {
                 $category->statut = 0;
             }
             $category->type = $type;
             $code = $this->Categories->Companies->Companycodes->find('all')->where(['controleur' => 'Categories', 'company_id' => $this->Auth->user('company_id')])->last();
-            $category->code = $code->prefixe . ($code->compteur + 1);
+            if ($code) {
+                $category->code = $code->prefixe . ($code->compteur + 1);
+            }
             $category->company_id = $this->Auth->user('company_id');
 
             if ($this->Categories->save($category)) {
-                $code->compteur = $code->compteur + 1;
-                $this->Categories->Companies->Companycodes->save($code);
+                if ($code) {
+                    $code->compteur = $code->compteur + 1;
+                    $this->Categories->Companies->Companycodes->save($code);
+                }
                 $this->Flash->success(__('La catégorie a été enregistrée.'));
 
-                return $this->redirect(['action' => 'index', $id, $type]);
+                return $this->redirect(['action' => 'index', $category->category_id ? 2 : 1, $type]);
             }
             $this->Flash->error(__('La catégorie n\'a pas pu être enregistrée. Veuillez réessayer.'));
         }
@@ -413,6 +421,42 @@ class CategoriesController extends AppController
         ];
         $this->autoRender = false;
         echo json_encode($response);
+        exit;
+    }
+
+    /**
+     * Fetch child sub-categories for a parent category dynamically via AJAX
+     */
+    public function childCategories($parentId)
+    {
+        $this->autoRender = false;
+        $subCategories = $this->Categories->find('all')
+            ->where([
+                'Categories.category_id' => $parentId,
+                'Categories.company_id' => $this->Auth->user('company_id')
+            ]);
+
+        $data = [];
+        foreach ($subCategories as $sub) {
+            $data[] = [
+                'Code' => $sub->code,
+                'Title' => $sub->title,
+                'Status' => $sub->statut,
+                'Actions' => '<div class="dropdown dropdown-inline">
+                                <a href="javascript:;" class="btn btn-sm btn-clean btn-icon" data-toggle="dropdown">
+                                    <i class="la la-cog"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-sm dropdown-menu-right">
+                                    <ul class="nav nav-hoverable flex-column">
+                                        <li class="nav-item"><a class="nav-link" href="' . Router::Url('/categories/edit/' . $sub->id) . '"><i class="nav-icon la la-edit"></i><span class="nav-text">Modifier</span></a></li>
+                                        <li class="nav-item"><a class="nav-link" href="' . Router::Url('/categories/edit/' . $sub->id . '/image') . '"><i class="nav-icon la la-image"></i><span class="nav-text">Modifier l\'image</span></a></li>
+                                        <li class="nav-item"><a class="nav-link" href="' . Router::Url('/categories/view/' . $sub->id) . '"><i class="nav-icon la la-eye"></i><span class="nav-text">Liste des articles</span></a></li>
+                                    </ul>
+                                </div>
+                            </div>'
+            ];
+        }
+        echo json_encode($data);
         exit;
     }
 }

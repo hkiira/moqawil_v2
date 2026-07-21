@@ -337,4 +337,40 @@ class CompaniesTable extends Table
 
         return $validator;
     }
+
+    public function afterSave(\Cake\Event\Event $event, \Cake\Datasource\EntityInterface $entity, \ArrayObject $options)
+    {
+        $prefixes = $entity->code_prefixes;
+        if (is_string($prefixes)) {
+            $prefixes = json_decode($prefixes, true);
+        }
+
+        if (is_array($prefixes)) {
+            $companycodesTable = \Cake\ORM\TableRegistry::getTableLocator()->get('Companycodes');
+            foreach ($prefixes as $controleur => $prefix) {
+                if (empty($prefix)) {
+                    continue;
+                }
+                $code = $companycodesTable->find('all')
+                    ->where(['company_id' => $entity->id, 'controleur' => $controleur])
+                    ->first();
+                if ($code) {
+                    if ($code->prefixe !== $prefix) {
+                        $code->prefixe = $prefix;
+                        $companycodesTable->save($code);
+                    }
+                } else {
+                    $newCode = $companycodesTable->newEntity([
+                        'name' => $controleur,
+                        'controleur' => $controleur,
+                        'prefixe' => $prefix,
+                        'compteur' => 0,
+                        'company_id' => $entity->id,
+                        'statut' => 1
+                    ]);
+                    $companycodesTable->save($newCode);
+                }
+            }
+        }
+    }
 }

@@ -23,6 +23,13 @@ $this->assign('subtitle', '');
             echo $this->Form->control('ice',['label'=>'I.C.E']);
             echo $this->Form->control('phone',['label'=>'Téléphone']);
             echo $this->Form->control('mail',['label'=>'E-mail']);
+            echo '<hr><h4>Configuration des préfixes</h4>';
+            echo $this->Form->control('code_prefixes.Users', ['label' => 'Préfixe Utilisateurs', 'value' => $company->code_prefixes['Users'] ?? '']);
+            echo $this->Form->control('code_prefixes.Orders', ['label' => 'Préfixe Commandes', 'value' => $company->code_prefixes['Orders'] ?? '']);
+            echo $this->Form->control('code_prefixes.Customers', ['label' => 'Préfixe Clients', 'value' => $company->code_prefixes['Customers'] ?? '']);
+            echo $this->Form->control('code_prefixes.Shippings', ['label' => 'Préfixe Livraisons', 'value' => $company->code_prefixes['Shippings'] ?? '']);
+            echo $this->Form->control('code_prefixes.Exitslips', ['label' => 'Préfixe Bons de Sortie', 'value' => $company->code_prefixes['Exitslips'] ?? '']);
+            echo $this->Form->control('code_prefixes.Slips', ['label' => 'Préfixe Bons', 'value' => $company->code_prefixes['Slips'] ?? '']);
         ?>
     </div>
         </div>

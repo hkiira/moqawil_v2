@@ -715,7 +715,7 @@ class OrdersController extends AppController
                         'pack_id' => $pack_id,
                         'quantity' => $whproduct->quantity,
                         'statut' => 2,
-                        'company_id' => 1
+                        'company_id' => $this->Auth->user('company_id')
                     ];
                     // Calculate new quantity after removal
                     $newQuantity = $whproduct->quantity + $quantity;
@@ -732,7 +732,7 @@ class OrdersController extends AppController
                         'pack_id' => $pack_id,
                         'quantity' => $whproduct->quantity,
                         'statut' => 3,
-                        'company_id' => 1
+                        'company_id' => $this->Auth->user('company_id')
                     ];
                     if (!$this->Whproducts->save($whproduct)) {
                         // Log error but continue processing other products
@@ -762,7 +762,7 @@ class OrdersController extends AppController
                         'pack_id' => $pack_id,
                         'quantity' => $whproduct->quantity,
                         'statut' => 2,
-                        'company_id' => 1
+                        'company_id' => $this->Auth->user('company_id')
                     ];
                     // Calculate new quantity after removal
                     $newQuantity = $whproduct->quantity - $quantity;
@@ -779,7 +779,7 @@ class OrdersController extends AppController
                         'pack_id' => $pack_id,
                         'quantity' => $whproduct->quantity,
                         'statut' => 3,
-                        'company_id' => 1
+                        'company_id' => $this->Auth->user('company_id')
                     ];
                     if (!$this->Whproducts->save($whproduct)) {
 
@@ -852,8 +852,55 @@ class OrdersController extends AppController
         if ($this->request->is('post')) {
             $datas = $this->request->getData();
             $iscustomer = $datas['customer_id'];
-            //vérifier si le client est disponible
             $customerinfos = $this->Orders->Customers->get($iscustomer);
+
+            // Point-in-Polygon boundary check (Approach B)
+            $isOutOfZone = 0;
+            $this->loadModel('Zones');
+            $customerSubzone = $this->Zones->find('all')
+                ->where(['id' => $customerinfos->zone_id])
+                ->first();
+
+            $sectorId = null;
+            if ($customerSubzone) {
+                $sectorId = $customerSubzone->zone_id ?: $customerSubzone->id;
+            }
+
+            if ($sectorId) {
+                $this->loadModel('ZoneCoordinates');
+                $boundaryCoords = $this->ZoneCoordinates->find('all')
+                    ->where(['zone_id' => $sectorId])
+                    ->order(['sequence_order' => 'ASC'])
+                    ->toArray();
+
+                if (!empty($boundaryCoords)) {
+                    $sellerLat = $this->request->getData('latitude');
+                    $sellerLng = $this->request->getData('longitude');
+
+                    if (!empty($sellerLat) && !empty($sellerLng)) {
+                        $polygon = [];
+                        foreach ($boundaryCoords as $coord) {
+                            $polygon[] = [
+                                'lat' => (float)$coord->latitude,
+                                'lng' => (float)$coord->longitude
+                            ];
+                        }
+                        
+                        $point = [
+                            'lat' => (float)$sellerLat,
+                            'lng' => (float)$sellerLng
+                        ];
+
+                        if (!$this->_isPointInPolygon($point, $polygon)) {
+                            $isOutOfZone = 1; // Out of zone
+                        }
+                    } else {
+                        $isOutOfZone = 2; // Unknown location
+                    }
+                }
+            }
+            $datas['is_out_of_zone'] = $isOutOfZone;
+
             $customer = $customerinfos->customertype_id;
             $orderpackproducts = [];
             $increment = 0;
@@ -1252,7 +1299,7 @@ class OrdersController extends AppController
                 $shipping->user_id = $order->user_id;
                 $shipping->customer_id = $order->customer_id;
                 $shipping->statut = 2;
-                $codeship = $this->Shippings->Companies->Companycodes->find('all')->where(['controleur' => 'Shippings', 'company_id' => 1])->last();
+                $codeship = $this->Shippings->Companies->Companycodes->find('all')->where(['controleur' => 'Shippings', 'company_id' => $this->Auth->user('company_id')])->last();
                 $shipping->code = "GF" . $codeship->prefixe . ($codeship->compteur + 1);
                 $shipping->orders = [0 => $order];
 
@@ -2230,5 +2277,31 @@ class OrdersController extends AppController
         $this->autoRender = false;
         echo json_encode($response);
         exit;
+    }
+
+    /**
+     * Point-in-Polygon validation helper (Ray-Casting Algorithm)
+     */
+    private function _isPointInPolygon($point, $polygon)
+    {
+        $x = $point['lat'];
+        $y = $point['lng'];
+        
+        $inside = false;
+        $numVertices = count($polygon);
+        for ($i = 0, $j = $numVertices - 1; $i < $numVertices; $j = $i++) {
+            $xi = $polygon[$i]['lat'];
+            $yi = $polygon[$i]['lng'];
+            $xj = $polygon[$j]['lat'];
+            $yj = $polygon[$j]['lng'];
+            
+            $intersect = (($yi > $y) != ($yj > $y))
+                && ($x < ($xj - $xi) * ($y - $yi) / ($yj - $yi) + $xi);
+            if ($intersect) {
+                $inside = !$inside;
+            }
+        }
+        
+        return $inside;
     }
 }

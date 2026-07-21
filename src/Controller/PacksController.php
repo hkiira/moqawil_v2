@@ -123,7 +123,10 @@ class PacksController extends AppController
     public function view($id = null)
     {
         $warehouseid = $this->Auth->user('defaultwh');
-        $warehouses = $this->Packs->Companies->Warehouses->find('all')->where(['warehouse_id' => $warehouseid, 'whtype_id' => 2]);
+        $this->loadModel('Whtypes');
+        $subwhtype = $this->Whtypes->find('all')->where(['code' => 'SD', 'company_id' => $this->Auth->user('company_id')])->first();
+        $subwhtypeId = $subwhtype ? $subwhtype->id : 2;
+        $warehouses = $this->Packs->Companies->Warehouses->find('all')->where(['warehouse_id' => $warehouseid, 'whtype_id' => $subwhtypeId]);
         $qwarehouse = [];
         foreach ($warehouses as $key => $warehouse) {
             $qwarehouse['OR'][$warehouse->id] = ['Whproducts.warehouse_id' => $warehouse->id];
@@ -161,7 +164,10 @@ class PacksController extends AppController
     public function achats($id = null)
     {
         $warehouseid = $this->Auth->user('defaultwh');
-        $warehouses = $this->Packs->Companies->Warehouses->find('all')->where(['warehouse_id' => $warehouseid, 'whtype_id' => 2]);
+        $this->loadModel('Whtypes');
+        $subwhtype = $this->Whtypes->find('all')->where(['code' => 'SD', 'company_id' => $this->Auth->user('company_id')])->first();
+        $subwhtypeId = $subwhtype ? $subwhtype->id : 2;
+        $warehouses = $this->Packs->Companies->Warehouses->find('all')->where(['warehouse_id' => $warehouseid, 'whtype_id' => $subwhtypeId]);
         $qwarehouse = [];
         foreach ($warehouses as $key => $warehouse) {
             $qwarehouse['OR'][$warehouse->id] = ['Whproducts.warehouse_id' => $warehouse->id];
@@ -197,7 +203,10 @@ class PacksController extends AppController
             $datas = $this->request->getData();
 
             $code = $this->Packs->Companies->Companycodes->find('all')->where(['controleur' => 'Packs', 'company_id' => $this->Auth->user('company_id')])->last();
-            $depots = $this->Packs->Packproducts->Products->Whproducts->Warehouses->find('all')->where(['whtype_id' => 2, 'company_id' => $this->Auth->user('company_id')]);
+            $this->loadModel('Whtypes');
+            $subwhtype = $this->Whtypes->find('all')->where(['code' => 'SD', 'company_id' => $this->Auth->user('company_id')])->first();
+            $subwhtypeId = $subwhtype ? $subwhtype->id : 2;
+            $depots = $this->Packs->Packproducts->Products->Whproducts->Warehouses->find('all')->where(['whtype_id' => $subwhtypeId, 'company_id' => $this->Auth->user('company_id')]);
             $whproducts = [];
 
             // When creating a new pack, Whproduct entries are for this pack.
@@ -308,10 +317,19 @@ class PacksController extends AppController
                 $this->Flash->success(__('L\'article a été enregistré.'));
                 return $this->redirect(['action' => 'index']);
             }
-            $this->Flash->error(__('L\'article n\'a pas pu être enregistré. Veuillez réessayer.'));
+            $errors = $pack->getErrors();
+            $this->Flash->error(__('L\'article n\'a pas pu être enregistré. Erreurs: ' . json_encode($errors)));
         }
 
-        $warehouses = $this->Packs->Prices->Warehouses->find('all')->where(['whtype_id' => 1]);
+        $this->loadModel('Whtypes');
+        $whtypeIds = $this->Whtypes->find('all')
+            ->where(['code' => 'DP', 'company_id' => $this->Auth->user('company_id')])
+            ->extract('id')
+            ->toArray();
+        if (empty($whtypeIds)) {
+            $whtypeIds = [1];
+        }
+        $warehouses = $this->Packs->Prices->Warehouses->find('all')->where(['whtype_id IN' => $whtypeIds]);
         $saletypes = $this->Packs->Saletypes->find('list');
         $tarifs = $this->Packs->Prices->Tarifs->find('all')->where(['statut' => 1]);
         $turnovers = $this->Packs->Turnovers->find('list')->where(['statut' => 1]);
@@ -657,31 +675,60 @@ class PacksController extends AppController
 
         ## Search 
         $defaultwh = $this->Auth->user('defaultwh');
-        $defaultwhtype = $this->Auth->user('defaultwhtype');
+        $warehouse = null;
+        
+        $this->loadModel('Whnatures');
+        $this->loadModel('Whtypes');
+        $whnature = $this->Whnatures->find('all')->where(['code' => 'NR', 'company_id' => $this->Auth->user('company_id')])->first();
+        $whnatureId = $whnature ? $whnature->id : 1;
+        $subwhtype = $this->Whtypes->find('all')->where(['code' => 'SD', 'company_id' => $this->Auth->user('company_id')])->first();
+        $subwhtypeId = $subwhtype ? $subwhtype->id : 2;
+
         if ($defaultwh) {
-            $warehouse = $this->Packs->Whproducts->Warehouses->get($defaultwh, [
-                'contain' => [
-                    'Subwarehouses' => function ($q) {
-                        return $q->where(['Subwarehouses.whnature_id' => 1, 'Subwarehouses.whtype_id' => 2]);
+            $warehouse = $this->Packs->Whproducts->Warehouses->find('all')
+                ->where(['Warehouses.id' => $defaultwh])
+                ->contain([
+                    'Subwarehouses' => function ($q) use ($whnatureId, $subwhtypeId) {
+                        return $q->where(['Subwarehouses.whnature_id' => $whnatureId, 'Subwarehouses.whtype_id' => $subwhtypeId]);
                     },
                     'Subwarehouses.Whproducts'
-                ]
-            ]);
+                ])
+                ->first();
+        }
 
+        if (!$warehouse) {
+            $whtypeIds = $this->Whtypes->find('all')
+                ->where(['code' => 'DP', 'company_id' => $this->Auth->user('company_id')])
+                ->extract('id')
+                ->toArray();
+            if (!empty($whtypeIds)) {
+                $warehouse = $this->Packs->Whproducts->Warehouses->find('all')
+                    ->where(['Warehouses.company_id' => $this->Auth->user('company_id'), 'Warehouses.whtype_id IN' => $whtypeIds])
+                    ->contain([
+                        'Subwarehouses' => function ($q) use ($whnatureId, $subwhtypeId) {
+                            return $q->where(['Subwarehouses.whnature_id' => $whnatureId, 'Subwarehouses.whtype_id' => $subwhtypeId]);
+                        },
+                        'Subwarehouses.Whproducts'
+                    ])
+                    ->first();
+            }
+        }
+
+        if ($warehouse) {
             $whproducts = [];
-            foreach ($warehouse->subwarehouses[0]->whproducts as $whproduct) {
-                $whproducts['OR'][$whproduct->id] = ['Whproducts.id' => $whproduct->id];
+            if (!empty($warehouse->subwarehouses)) {
+                foreach ($warehouse->subwarehouses[0]->whproducts as $whproduct) {
+                    $whproducts['OR'][$whproduct->id] = ['Whproducts.id' => $whproduct->id];
+                }
             }
 
             if (!$whproducts) {
-                $whproducts = ['Products.id' => 0];
+                $whproducts = ['Whproducts.id' => 0];
             }
 
             $sel = $this->Packs->find('all')->contain([
                 'MeasurementUnits',
-                'Categories' => function ($q) {
-                    return $q->select(['Categories.title']);
-                },
+                'Categories',
                 'Packunites.Unites.Parentunites',
                 'Whproducts' => function ($q) use ($whproducts) {
                     return $q->where([$whproducts]);
@@ -692,15 +739,32 @@ class PacksController extends AppController
             $empQuery = $this->Packs->find('all')->contain([
                 'MeasurementUnits',
                 'Packunites.Unites.Parentunites',
-                'Categories' => function ($q) {
-                    return $q->select(['Categories.title']);
-                },
+                'Categories',
                 'Packtypes' => function ($q) {
                     return $q->select(['Packtypes.title']);
                 },
                 'Packunites.Unites.Parentunites',
                 'Whproducts' => function ($q) use ($whproducts) {
                     return $q->where([$whproducts]);
+                },
+                'Categoryuserpacks.Categoryusers'
+            ])
+                ->order([$columnName => $columnSort])
+                ->where(['OR' => [['Packs.statut' => 1], ['Packs.statut' => 0], ['Packs.statut' => 2], ['Packs.statut' => 3]]]);
+        } else {
+            $sel = $this->Packs->find('all')->contain([
+                'MeasurementUnits',
+                'Categories',
+                'Packunites.Unites.Parentunites'
+            ])
+                ->where(['OR' => [['Packs.statut' => 1], ['Packs.statut' => 0]]]);
+
+            $empQuery = $this->Packs->find('all')->contain([
+                'MeasurementUnits',
+                'Packunites.Unites.Parentunites',
+                'Categories',
+                'Packtypes' => function ($q) {
+                    return $q->select(['Packtypes.title']);
                 },
                 'Categoryuserpacks.Categoryusers'
             ])
@@ -767,18 +831,26 @@ class PacksController extends AppController
         foreach ($empQuery as $key => $pack) {
             $hasvariation = $this->Packs->find('all')->where(['pack_id' => $pack->id]);
             if ($hasvariation->count() == 0) {
-                $pofsale = $this->Packs->Orderpacks->Orders->Pofsales->find('all')->where(['warehouse_id' => $this->Auth->user('defaultwh'), 'pofstype_id' => 3])->last();
-                $orders = $this->Packs->Orderpacks->Orders->find('all')->contain([
-                    'Orderpacks' => function ($q) use ($pack) {
-                        return $q->where(['Orderpacks.pack_id' => $pack->id]);
-                    }
-                ])->where(['Orders.statut' => 1, 'Orders.pofsale_id' => $pofsale->id]);
+                $this->loadModel('Pofstypes');
+                $pofstype = $this->Pofstypes->find('all')->where(['code' => 'VI', 'company_id' => $this->Auth->user('company_id')])->first();
+                $pofstypeId = $pofstype ? $pofstype->id : 3;
+
+                $pofsale = $this->Packs->Orderpacks->Orders->Pofsales->find('all')->where(['warehouse_id' => $defaultwh, 'pofstype_id' => $pofstypeId])->last();
+                
                 $ininstance = 0;
-                foreach ($orders as $order) {
-                    foreach ($order->orderpacks as $orderpack) {
-                        $ininstance += $orderpack->quantity;
+                if ($pofsale) {
+                    $orders = $this->Packs->Orderpacks->Orders->find('all')->contain([
+                        'Orderpacks' => function ($q) use ($pack) {
+                            return $q->where(['Orderpacks.pack_id' => $pack->id]);
+                        }
+                    ])->where(['Orders.statut' => 1, 'Orders.pofsale_id' => $pofsale->id]);
+                    foreach ($orders as $order) {
+                        foreach ($order->orderpacks as $orderpack) {
+                            $ininstance += $orderpack->quantity;
+                        }
                     }
                 }
+                
                 $photo = $this->Packs->Photos->find('all')->where(['controleur' => 'packs', 'objectid' => $pack->id])->order(['created' => 'ASC'])->last();
                 $img = Router::Url('/') . 'webroot/img/unvailable.jpg';
                 if ($photo) {
@@ -788,14 +860,31 @@ class PacksController extends AppController
                 if ($this->Auth->user('role_id') == 1 || $this->Auth->user('role_id') == 1 || $this->Auth->user('role_id') == 2 || $this->Auth->user('role_id') == 1 || $this->Auth->user('role_id') == 1 || $this->Auth->user('role_id') == 7 || $this->Auth->user('role_id') == 8) {
                     $edit = 1;
                 }
-                // Calculate quantities with measurement multiples
-                $quantity = $pack->whproducts[0]->quantity;
-                $piecesPerUnit = $pack->packunites[0]->quantity;
+                
+                // Calculate quantities safely with fallback defaults
+                $quantity = (!empty($pack->whproducts) && isset($pack->whproducts[0])) ? $pack->whproducts[0]->quantity : 0;
+                
+                $piecesPerUnit = 1;
+                $uniteAbrev = '';
+                $packUniteLabel = 'Non configuré';
+                $packUniteId = null;
+
+                if (!empty($pack->packunites) && isset($pack->packunites[0])) {
+                    $piecesPerUnit = $pack->packunites[0]->quantity;
+                    $packUniteId = $pack->packunites[0]->id;
+                    if (isset($pack->packunites[0]->unite)) {
+                        $uniteAbrev = $pack->packunites[0]->unite->abrev;
+                        $parentAbrev = isset($pack->packunites[0]->unite->parentunite) ? $pack->packunites[0]->unite->parentunite->abrev : '';
+                        $uniteTitle = $pack->packunites[0]->unite->title;
+                        $packUniteLabel = $piecesPerUnit . " " . $parentAbrev . "s par " . $uniteTitle;
+                    }
+                }
+
                 $measurementQuantity = $pack->measurement_quantity;
 
-                // Format quantities using the new function
-                $quantityInfo = $this->formatQuantity($quantity, $piecesPerUnit, $pack->packunites[0]->unite->abrev);
-                $instanceInfo = $this->formatQuantity($ininstance, $piecesPerUnit, $pack->packunites[0]->unite->abrev);
+                // Format quantities using the formatQuantity function
+                $quantityInfo = $this->formatQuantity($quantity, $piecesPerUnit, $uniteAbrev);
+                $instanceInfo = $this->formatQuantity($ininstance, $piecesPerUnit, $uniteAbrev);
 
                 // Calculate total measurement and format it
                 $totalMeasurement = $measurementQuantity * $quantity;
@@ -809,19 +898,20 @@ class PacksController extends AppController
                 } else {
                     $categoryusers = "Aucun";
                 }
+                
                 $data[] = [
                     "id" => $pack->id,
                     "img" => $img,
                     "code" => $pack->code,
                     "name" => $pack->title,
-                    "packunite" => $pack->packunites[0]->quantity . " " . $pack->packunites[0]->unite->parentunite->abrev . "s par " . $pack->packunites[0]->unite->title,
-                    "category" => "",
+                    "packunite" => $packUniteLabel,
+                    "category" => ($pack->category) ? $pack->category->title : "",
                     "ininstance" => $instanceInfo['display'] . '<br><small>(' . $instanceInfo['total_pieces'] . ' pièces)</small>',
                     "quantity" => $quantityInfo['display'] . '<br><small>(' . $formattedMeasurement . ')</small>',
                     "categoryusers" => $categoryusers,
                     "status" => $pack->statut,
                     "edit" => $edit,
-                    "packuniteid" => $pack->packunites[0]->id,
+                    "packuniteid" => $packUniteId,
                     "actions" => null
                 ];
             }

@@ -64,9 +64,31 @@ class InventoriesController extends AppController
     public function add()
     {
         $inventory = $this->Inventories->newEntity();
+
+        $this->loadModel('Whtypes');
+        $types = $this->Whtypes->find('all')
+            ->where(['company_id' => $this->Auth->user('company_id')])
+            ->toArray();
+            
+        $whtypeIds = [
+            'DP' => [],
+            'SD' => [],
+            'AU' => [],
+            'MG' => []
+        ];
+        
+        foreach ($types as $t) {
+            $whtypeIds[$t->code][] = $t->id;
+        }
+        
+        if (empty($whtypeIds['DP'])) $whtypeIds['DP'] = [1];
+        if (empty($whtypeIds['SD'])) $whtypeIds['SD'] = [2];
+        if (empty($whtypeIds['AU'])) $whtypeIds['AU'] = [3];
+        if (empty($whtypeIds['MG'])) $whtypeIds['MG'] = [4];
+
         if ($this->request->is('post')) {
             $datas=$this->request->getData();
-            $warehouse=$this->Inventories->Warehouses->find('all')->where(['warehouse_id'=>$datas['warehouse_id'],'whnature_id'=>$datas['whnature_id'],'whtype_id'=>2])->last();
+            $warehouse=$this->Inventories->Warehouses->find('all')->where(['warehouse_id'=>$datas['warehouse_id'],'whnature_id'=>$datas['whnature_id'],'whtype_id IN'=>$whtypeIds['SD']])->last();
             $packs=$this->Inventories->Invproducts->Packs->find('all')->where(['Packs.statut'=>1]);
             if($datas['categories']){
                 $packcategories=[];
@@ -111,16 +133,15 @@ class InventoriesController extends AppController
             $this->Flash->error(__('L\'inventaire n\'a pas pu être enregistré. Veuillez réessayer.'));
         }
         
-        // Custom query for warehouses to show user names for whtype_id = 3
+        $allowedTypes = array_merge($whtypeIds['DP'], $whtypeIds['AU']);
         $warehouses = $this->Inventories->Warehouses->find('all')
-            ->where(['OR'=>['whtype_id'=>1,'whtype_id'=>3]])
+            ->where(['whtype_id IN' => $allowedTypes])
             ->contain(['Pofsales.Pofsusers.Users'])
-            ->formatResults(function($results) {
-                return $results->map(function($row) {
-                    if ($row->whtype_id == 1) {
+            ->formatResults(function($results) use ($whtypeIds) {
+                return $results->map(function($row) use ($whtypeIds) {
+                    if (in_array($row->whtype_id, $whtypeIds['DP'])) {
                         $row->display_title = $row->title;
-                    }elseif ($row->whtype_id == 3) {
-                        // Get the first pofsale's first pofsuser's user
+                    }elseif (in_array($row->whtype_id, $whtypeIds['AU'])) {
                         $pofsale = $row->pofsales[0];
                         if (!empty($pofsale->pofsusers)) {
                             $user = $pofsale->pofsusers[0]->user;

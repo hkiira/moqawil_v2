@@ -79,7 +79,7 @@ class UsersController extends AppController
 
             if ($user) {
 
-                $accesusers=$this->Users->Roles->Accesroles->find('all')->where(['Accesroles.role_id'=>$user['role_id']])->contain(['Accesses.Controlleuractions.Controlleurs','Accesses.Controlleuractions.Actions']);
+                $accesusers=$this->Users->Roles->Accesroles->find('all')->where(['Accesroles.role_id'=>$user['role_id'], 'Accesroles.company_id'=>$user['company_id']])->contain(['Accesses.Controlleuractions.Controlleurs','Accesses.Controlleuractions.Actions']);
 
                 $accesses=[];
 
@@ -189,17 +189,47 @@ class UsersController extends AppController
 
 
 
+                $this->loadModel('Whtypes');
+                $entrepotTypes = $this->Whtypes->find('list', [
+                    'keyField' => 'id',
+                    'valueField' => 'id'
+                ])->where(['company_id' => $user['company_id'], 'title' => 'Entrepôt'])->toArray();
+                if (empty($entrepotTypes)) {
+                    $entrepotTypes = [1];
+                }
+
+                $this->loadModel('Whnatures');
+                $normaleNatures = $this->Whnatures->find('list', [
+                    'keyField' => 'id',
+                    'valueField' => 'id'
+                ])->where(['company_id' => $user['company_id'], 'title' => 'Normale'])->toArray();
+                if (empty($normaleNatures)) {
+                    $normaleNatures = [1];
+                }
+
+                $automobileTypes = $this->Whtypes->find('list', [
+                    'keyField' => 'id',
+                    'valueField' => 'id'
+                ])->where(['company_id' => $user['company_id'], 'title' => 'Automobile'])->toArray();
+                if (empty($automobileTypes)) {
+                    $automobileTypes = [3];
+                }
+
                 if($user['role_id']==1 || $user['role_id']==2){
 
                     $this->loadModel('Warehouses');
 
-                    $warehouses=$this->Warehouses->find('all')->where(['whnature_id'=>1,'whtype_id'=>1,'warehouse_id IS '=>NULL])->contain(['Subwarehouses'=>function($q){return $q->where(['whtype_id'=>3]);}]);
+                    $warehouses=$this->Warehouses->find('all')->where(['company_id'=>$user['company_id'],'whnature_id IN'=>$normaleNatures,'whtype_id IN'=>$entrepotTypes,'warehouse_id IS '=>NULL])->contain(['Subwarehouses'=>function($q) use ($automobileTypes){return $q->where(['whtype_id IN'=>$automobileTypes]);}]);
 
-                    $user["warehouses"]=$warehouses->toArray();
-
-                    $user['defaultwh']=$warehouses->toArray()[0]->id;
-
-                    $user['defaultwhtype']=$warehouses->toArray()[0]->whtype_id;
+                    $warehouses = $warehouses->toArray();
+                    $user["warehouses"] = $warehouses;
+                    if (!empty($warehouses)) {
+                        $user['defaultwh'] = $warehouses[0]->id;
+                        $user['defaultwhtype'] = $warehouses[0]->whtype_id;
+                    } else {
+                        $user['defaultwh'] = null;
+                        $user['defaultwhtype'] = null;
+                    }
 
                 }elseif($user['role_id']==5 || $user['role_id']==6 || $user['role_id']==3){
 
@@ -219,7 +249,7 @@ class UsersController extends AppController
 
                     $whusers=$this->Warehouses->Whusers->find('all')->where(['user_id'=>$user['id']]);
 
-                    $warehouses=$this->Warehouses->find('all')->where(['whnature_id'=>1,'whtype_id'=>1,'warehouse_id IS '=>NULL])->contain(['Subwarehouses'=>function($q){return $q->where(['whtype_id'=>3]);}]);
+                    $warehouses=$this->Warehouses->find('all')->where(['company_id'=>$user['company_id'],'whnature_id IN'=>$normaleNatures,'whtype_id IN'=>$entrepotTypes,'warehouse_id IS '=>NULL])->contain(['Subwarehouses'=>function($q) use ($automobileTypes){return $q->where(['whtype_id IN'=>$automobileTypes]);}]);
 
                     $qwhuser=[];
 

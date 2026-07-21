@@ -63,6 +63,11 @@ class WhproductsTable extends Table
             'conditions' => ['Whproducts.item_type' => 'Pack'], // Added condition
             'joinType' => 'INNER',
         ]);
+        $this->belongsTo('Products', [
+            'foreignKey' => 'item_id',
+            'conditions' => ['Whproducts.item_type' => 'Product'], // Added condition
+            'joinType' => 'INNER',
+        ]);
         $this->hasMany('Whuserproducts', [
             'foreignKey' => 'whproduct_id',
         ]);
@@ -133,5 +138,16 @@ class WhproductsTable extends Table
         $rules->add($rules->existsIn(['company_id'], 'Companies'));
 
         return $rules;
+    }
+
+    public function beforeMarshal(\Cake\Event\Event $event, \ArrayObject $data, \ArrayObject $options)
+    {
+        if (isset($data['product_id']) && !isset($data['item_id'])) {
+            $data['item_id'] = $data['product_id'];
+            $data['item_type'] = 'Product';
+        } elseif (isset($data['pack_id']) && !isset($data['item_id'])) {
+            $data['item_id'] = $data['pack_id'];
+            $data['item_type'] = 'Pack';
+        }
     }
 }
